@@ -2788,6 +2788,104 @@ is added to `publication.readiness.awaiting`.
   `main`'s `pilot-17` policy put back. The release suite runs **1493** tests on Node
   24.22.1, against 1487 on `main` (both measured).
 
+### The 2026-10-28 Admin refresh (compatible set `2026-10-28-pilot-19`)
+
+Admin merged #51 as `1557572`, #52 as `4abdb19` and #54 as `4eb249f`. Admin CI run
+`40722290353` succeeded on `4eb249f`, and Deploy Admin run `40722674704` promoted it.
+Those conclusions were read through the API; the logs were not read. A public read of
+`/release.txt` returned `4eb249f`, `no-store`, at 2026-10-28T16:37:22Z. This refresh
+approves `4eb249f`. Only the Admin approval and the set id move. Backend `0513adb` and its
+serving note are `pilot-12`'s, the owner state is `source-protection-recorded`, and nothing
+is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `4eb249f633788107a555bd25c40f965056a468c2` (#54) | `01512f61…` | `deploy.yml` `0f70ddfa…` (changed) | `sha256:22661fda703a7afd62cfd5b439091d6a7614f91b622798a830908318edd6277c` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a fresh clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `13a0e54` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  walked the commit's tree to the `deploy.yml` blob and computed the canonical digest, and
+  it agrees. `13a0e54`'s `b5e1127b…` and `668b627`'s `aadd295e…` reproduce as controls.
+- **Admin `13a0e54..4eb249f` is three first-parent merges, reviewed together.** Each
+  merge's tree equals its PR head's (#51 `b2d81a0`, `7d718a5…`; #52 `dfc391d`, `4359eb3…`;
+  #54 `18b0f38`, `01512f6…`), so the merged source is the reviewed source:
+  - #51 is CI-signal A-2. The dependency audit supplies provenance (a finding is inherited
+    only when the base commit's lock, read through git, already held the same path,
+    version and integrity) and the advisory clock (`GET /advisories/{id}`, retained as
+    `advisories.json`). `ci.yml`'s `validate` passes `BASE` and `GH_TOKEN` to its audit
+    step, certification retains the advisory record, and the fresh assessment at
+    promotion gives the application and scanner graphs provenance against the
+    candidate's own retained locks;
+  - #52 changed only `.github/dependabot.yml`: a weekly npm entry for
+    `/dependency-audit/scanner` with `open-pull-requests-limit: 0` that ignores every
+    dependency (S-1);
+  - #54 is the A-1/A-2 follow-ups. The fresh assessment REUSES the advisory dates the
+    certification retained (only when the bytes are exactly the ones the certification
+    record lists) and asks GitHub, unauthenticated, only for an advisory that record does
+    not date. The runtime self-test checks deadlines and the absence of deferral fields, a
+    bundled entry is inherited only when its bundling package is, and the `validate` job's
+    token is narrowed to `contents: read`.
+
+  `claude.yml`, `claude-code-review.yml` and `audit.yml` are unchanged. No `package.json`,
+  lock, `angular.json` or `src/` file changed. Admin's trusted verifier trees (`release/`,
+  `dependency-audit/`) moved as described.
+- **The receipt-bearing `deploy.yml` changes, in comments and one environment key.** Its
+  blob moved `a71f5d5` → `dc5297e` (#51) → `0f70ddf` (#54) by eleven added lines and no
+  removed one. Six are comments above the privileged `verify` step (lines 1092-1097 at
+  `4eb249f`), four are comments above `prepare`'s `evaluate` step (780-783), and one is
+  that step's `CERTIFIED_CANDIDATE_DIR: candidate` (792). Parsed job by job, every job's
+  permissions, `needs`, `if`, `uses` and step list are otherwise identical:
+  - `window` (line 178) holds exactly `actions: write` (189-190), with no checkout, no
+    `uses:` action and no secret;
+  - `prepare` needs `window` (419) and holds `contents: read` and `actions: read`
+    (440-442), with no `id-token`;
+  - `deploy` needs `[window, prepare]` (823) and is still the only job in any Admin
+    workflow holding `id-token: write` (828);
+  - the forward-only ordering guard (1135) before OIDC (1235), and every later gate, are
+    unchanged.
+
+  The `evaluate` step (785-799) runs the scanner and holds no token: its environment is
+  `TARGET_SHA`, `MODE`, `SOURCE` and `CERTIFIED_CANDIDATE_DIR`. `fetchAdvisories` strips
+  `GH_TOKEN` and `GITHUB_TOKEN` from what it passes on, so its question to GitHub is
+  unauthenticated. The privileged `verify` step (1099-1116) receives six `prepare`
+  outputs, and `verifyAssessment` re-reads the retained `advisories.json` and fetches
+  nothing. No token-bearing step was added to `deploy.yml`.
+- **Outside the receipt, `ci.yml`'s audit step holds the job token.** Since #51 the
+  `validate` job's audit step sets `GH_TOKEN: ${{ github.token }}` and runs the
+  repository's own `npm run audit:deps`. #54 narrows that token to `contents: read`. The
+  scanner's environment is scrubbed of `GH_TOKEN` and `GITHUB_TOKEN`
+  (`npm.mjs` `scannerEnvironment`). The job's checkout does not set
+  `persist-credentials: false`, so the same token was already available to every later
+  `validate` step. `ci.yml` is not in the receipt and deploys nothing; this is recorded so
+  the review can weigh it.
+- **Two refusals recorded, one constructed.** Readiness run `40589508096` (on `a1b50b2`)
+  refused a served `1557572` under `pilot-18`, `sha256:6b7db236…`. Run `40718471449` (on
+  `84cf093`) refused a served `4abdb19` the same way, `sha256:d10e3b79…`. Both digests are
+  the ones the readiness record printed in each job's log; the gate artifacts could not be
+  downloaded from the environment that prepared this refresh. Both reproduce through the
+  repository's own decision code. Run `40599209083` (on `a736f5c`) ran at 23:02Z, outside
+  the server's window, and could not read Admin at all. No run observed `4eb249f` under
+  `pilot-18` (the last read the peers at 15:41Z, before #54 merged at 16:04Z), so its
+  refusal is computed from the rule with a passing assessment: `sha256:43e81977…`, five
+  reasons. With every other fact held fixed, the refresh removes
+  `peers.admin_serving_unapproved` and nothing else, and returns the four-reason wait
+  `sha256:01536d3a…`. Readiness run `40559132077` (on `28dbfad`) recorded that wait under
+  `pilot-18`; the `pilot-18` row's note saying no run had is older than that run and is
+  left as written. No run has recorded the wait under `pilot-19`.
+- **What it does not resolve.** The four standing reasons
+  (`peers.backend_serving_unverified`, the two `prerequisite.legacy_publisher_*` reasons
+  and `served.bootstrap_unauthorized`) stand. This approval activates no publisher,
+  establishes no backend runtime identity and enables no publication. A later Admin head
+  is not implicitly approved: the next Admin deployment turns the next readiness run red
+  again until its own receipt is reviewed.
+- **Replaced, not joined.** The `13a0e54` receipt stays under `peers/` as history. The
+  committed-policy and journey-observation suites run **245** tests together (237 on
+  `main`): the eight added are the ones the new row generates, and 20 of them fail with
+  `main`'s `pilot-18` policy put back. The release suite runs **1531** tests on Node
+  24.22.1, against 1523 on `main` (both measured).
+
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
 adapter and simulation suites then prove the CLI feeds them what the world says.
