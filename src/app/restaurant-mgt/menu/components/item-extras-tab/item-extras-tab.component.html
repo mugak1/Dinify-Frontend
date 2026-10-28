@@ -60,7 +60,7 @@
             (click)="toggleExtra(extra.id)">
             <input type="checkbox"
               [checked]="isSelected(extra.id)"
-              class="h-5 w-5 rounded border-input text-primary focus:ring-ring"
+              class="h-5 w-5 rounded border-input focus:ring-ring"
               (click)="$event.stopPropagation()"
               (change)="toggleExtra(extra.id)" />
             <span class="flex-1 text-sm text-foreground">{{ extra.name }}</span>

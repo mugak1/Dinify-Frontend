@@ -54,7 +54,7 @@
               type="file"
               accept="image/jpeg,image/png,image/gif"
               (change)="onFileSelected($event)"
-              class="mt-2 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+              class="mt-2 block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:border file:border-input file:bg-background file:text-foreground hover:file:bg-accent" />
             @if (isCompressing) {
               <div class="mt-2 flex items-center text-xs text-muted-foreground">
                 <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -72,7 +72,7 @@
             <input formControlName="name"
               autocapitalize="off"
               autocorrect="off"
-              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring"
               [class.border-destructive]="attemptedSave && form.get('name')?.invalid"
               placeholder="Item name" />
             @if (form.get('name')?.touched && form.get('name')?.invalid) {
@@ -86,7 +86,7 @@
           <div>
             <label class="block text-sm font-medium text-foreground mb-1.5">Section *</label>
             <select formControlName="section"
-              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring"
               [class.border-destructive]="attemptedSave && form.get('section')?.invalid">
               <option value="" disabled>Select a section</option>
               @for (s of sections$ | async; track s) {
@@ -103,7 +103,7 @@
             <label class="block text-sm font-medium text-foreground mb-1.5">Description</label>
             <textarea formControlName="description"
               rows="3"
-              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring"
               placeholder="Optional description">
             </textarea>
           </div>
@@ -114,7 +114,7 @@
             <input type="number"
               formControlName="primary_price"
               min="1"
-              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring"
               [class.border-destructive]="attemptedSave && form.get('primary_price')?.invalid"
               placeholder="0" />
             @if (attemptedSave && form.get('primary_price')?.invalid) {
@@ -128,7 +128,7 @@
             <input type="number"
               formControlName="calories"
               min="0"
-              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              class="w-full border border-input bg-background text-foreground rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring"
               placeholder="Optional — e.g. 450" />
             <p class="text-xs text-muted-foreground mt-1">Leave blank if unknown</p>
           </div>
@@ -160,7 +160,7 @@
             <div class="space-y-2 mt-3">
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="is_featured"
-                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Featured</span>
                   <span class="block text-xs text-muted-foreground">Showcase this item prominently</span>
@@ -169,7 +169,7 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="is_popular"
-                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Popular</span>
                   <span class="block text-xs text-muted-foreground">Mark as a bestseller or customer favourite</span>
@@ -178,7 +178,7 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="is_new"
-                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">New</span>
                   <span class="block text-xs text-muted-foreground">Highlight as a recent addition</span>
@@ -187,7 +187,7 @@
 
               <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" formControlName="age_restricted"
-                  class="mt-0.5 h-5 w-5 rounded border-input text-primary focus:ring-ring" />
+                  class="mt-0.5 h-5 w-5 rounded border-input focus:ring-ring" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Contains alcohol / age-restricted (18+)</span>
                   <span class="block text-xs text-muted-foreground">Shows an alcohol/age disclaimer on the customer item page</span>
@@ -202,22 +202,22 @@
             <p class="text-xs text-muted-foreground mt-0.5">Control whether this item can be ordered</p>
 
             <div class="space-y-2 mt-3">
-              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+              <label class="flex items-start gap-3 rounded-md border border-border has-[:checked]:border-selected px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="radio" name="in_stock"
                   [checked]="form.get('in_stock')?.value === true"
                   (change)="form.get('in_stock')?.setValue(true)"
-                  class="mt-0.5 accent-primary" />
+                  class="mt-0.5" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">In stock</span>
                   <span class="block text-xs text-muted-foreground">Item can be ordered</span>
                 </span>
               </label>
 
-              <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+              <label class="flex items-start gap-3 rounded-md border border-border has-[:checked]:border-selected px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="radio" name="in_stock"
                   [checked]="form.get('in_stock')?.value === false"
                   (change)="form.get('in_stock')?.setValue(false)"
-                  class="mt-0.5 accent-primary" />
+                  class="mt-0.5" />
                 <span class="flex-1">
                   <span class="block text-sm font-medium text-foreground">Out of stock</span>
                   <span class="block text-xs text-muted-foreground">Item visible but cannot be ordered</span>

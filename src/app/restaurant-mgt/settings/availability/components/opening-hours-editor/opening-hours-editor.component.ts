@@ -34,7 +34,7 @@ export class OpeningHoursEditorComponent {
   /** Compact, neutral time-input styling (red ring is carried at the row level). */
   readonly timeInputClass =
     'rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 ' +
-    'focus:outline-none focus:ring-1 focus:border-primary focus:ring-primary';
+    'focus:outline-none focus:ring-1 focus:border-ring focus:ring-ring';
 
   private group(key: OpeningHoursDay): FormGroup {
     return this.form.get(key) as FormGroup;

@@ -19,21 +19,21 @@
     <div>
       <label class="block text-sm font-medium text-foreground mb-2">Discount type</label>
       <div class="space-y-2">
-        <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+        <label class="flex items-start gap-3 rounded-md border border-border has-[:checked]:border-selected px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
           <input type="radio" name="discount_type"
             [checked]="discountType === 'percentage'"
             (change)="onDiscountTypeChange('percentage')"
-            class="mt-0.5 accent-primary" />
+            class="mt-0.5" />
           <span class="flex-1">
             <span class="block text-sm font-medium text-foreground">Percentage</span>
             <span class="block text-xs text-muted-foreground">Discount by a percentage of the price</span>
           </span>
         </label>
-        <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+        <label class="flex items-start gap-3 rounded-md border border-border has-[:checked]:border-selected px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
           <input type="radio" name="discount_type"
             [checked]="discountType === 'fixed'"
             (change)="onDiscountTypeChange('fixed')"
-            class="mt-0.5 accent-primary" />
+            class="mt-0.5" />
           <span class="flex-1">
             <span class="block text-sm font-medium text-foreground">Fixed amount</span>
             <span class="block text-xs text-muted-foreground">Discount by a specific UGX amount</span>

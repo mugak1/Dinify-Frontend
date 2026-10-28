@@ -75,7 +75,7 @@
           type="file"
           accept="image/*"
           (change)="onFileSelected($event)"
-          class="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90" />
+          class="block w-full text-sm text-muted-foreground file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:border file:border-input file:bg-background file:text-foreground hover:file:bg-accent" />
       </div>
       <!-- Available -->
       <div class="flex items-center gap-2">
@@ -121,15 +121,13 @@
               <label class="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="availability" value="always"
                   [checked]="availability === 'always'"
-                  (change)="onAvailabilityChange('always')"
-                  class="accent-primary">
+                  (change)="onAvailabilityChange('always')">
                 <span class="text-sm text-foreground">Always available</span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name="availability" value="scheduled"
                   [checked]="availability === 'scheduled'"
-                  (change)="onAvailabilityChange('scheduled')"
-                  class="accent-primary">
+                  (change)="onAvailabilityChange('scheduled')">
                 <span class="text-sm text-foreground">Available during scheduled hours</span>
               </label>
             </div>
