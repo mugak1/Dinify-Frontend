@@ -39,7 +39,9 @@ describe('ReportTableComponent', () => {
 
     const badge = fixture.nativeElement.querySelector('app-dn-badge');
     expect(badge.textContent.trim()).toBe('Paid');
-    expect(badge.className).toContain('bg-success'); // paid → success variant
+    // paid → success variant: a green status tint with dark text (never a solid fill or brand red).
+    expect(badge.className).toContain('bg-green-100');
+    expect(badge.className).toContain('text-green-800');
 
     expect(component.formatCell('2026-06-21T09:05:00', 'datetime')).toContain('2026');
   });

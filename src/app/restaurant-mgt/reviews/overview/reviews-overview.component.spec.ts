@@ -5,6 +5,13 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { ReviewsOverviewComponent } from './reviews-overview.component';
 
+
+/** The rendered tab buttons of the Nth app-dn-segmented on the page. */
+function segTabs(root: HTMLElement, index: number): HTMLButtonElement[] {
+  const seg = root.querySelectorAll('app-dn-segmented')[index] as HTMLElement | undefined;
+  return seg ? (Array.from(seg.querySelectorAll('button[role="tab"]')) as HTMLButtonElement[]) : [];
+}
+
 describe('ReviewsOverviewComponent', () => {
   let component: ReviewsOverviewComponent;
   let fixture: ComponentFixture<ReviewsOverviewComponent>;
@@ -62,5 +69,24 @@ describe('ReviewsOverviewComponent', () => {
 
     expect(component.chartData.labels).toEqual(['4 May', '11 May']);
     expect(component.chartData.datasets[0].data).toEqual([4.0, 4.5]);
+  });
+
+  // The timeframe is a CHOSEN value, so it is the shared segmented control (ink), not a
+  // hand-rolled pale-red copy. A real click must still reach the same setter.
+  it('renders the timeframe as the shared segmented control, driving setTimeframe', () => {
+    const tabs = segTabs(fixture.nativeElement, 0);
+    expect(tabs.map((b) => b.textContent?.trim())).toEqual(['30 days', '90 days']);
+    expect(tabs[1].getAttribute('aria-selected')).toBe('true');
+
+    const spy = spyOn(component, 'setTimeframe').and.callThrough();
+    tabs[0].click();
+    expect(spy).toHaveBeenCalledWith(30);
+    expect(component.timeframeDays).toBe(30);
+  });
+
+  it('ignores a value the timeframe options do not contain', () => {
+    const spy = spyOn(component, 'setTimeframe');
+    component.onTimeframeValue('7');
+    expect(spy).not.toHaveBeenCalled();
   });
 });

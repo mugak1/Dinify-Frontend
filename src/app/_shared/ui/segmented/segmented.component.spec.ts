@@ -93,15 +93,16 @@ describe('DnSegmentedComponent', () => {
 
   afterEach(() => fixture?.destroy());
 
-  it('styles the active pill red (bg-primary, white ink) on a white bg-card track', () => {
+  it('styles the active pill INK (bg-selected, white text) on a white bg-card track — a choice, never brand red', () => {
     fixture.detectChanges();
     const c = child();
-    expect(c.gliderClass).toContain('bg-primary');
+    expect(c.gliderClass).toContain('bg-selected');
+    expect(c.gliderClass).not.toContain('bg-primary');
     expect(c.trackClass()).toContain('bg-card');
     expect(c.trackClass()).toContain('border');
-    // Active ink is white on the red pill; inactive is full-strength foreground (near-black),
+    // Active text is white on the ink pill; inactive is full-strength foreground (near-black),
     // NOT muted grey — muted read as washed out against the white track.
-    expect(c.segClass(VALUE_ITEMS[0])).toContain('text-primary-foreground'); // 'a' is active (value='a')
+    expect(c.segClass(VALUE_ITEMS[0])).toContain('text-selected-foreground'); // 'a' is active (value='a')
     expect(c.segClass(VALUE_ITEMS[1])).toContain('text-foreground');
     expect(c.segClass(VALUE_ITEMS[1])).not.toContain('text-muted-foreground');
   });

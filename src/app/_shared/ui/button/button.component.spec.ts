@@ -96,4 +96,44 @@ describe('ButtonComponent', () => {
     expect(el.className).toContain('pointer-events-none');
     expect(el.className).toContain('cursor-not-allowed');
   });
+
+  // ── Colour roles: brand red means act; links are ink; danger has two quiet forms ──
+  it('renders the link variant in ink, never brand red — a link is information', () => {
+    host.variant = 'link';
+    const el = render();
+    expect(el.className).toContain('text-foreground');
+    expect(el.className).toContain('font-medium');
+    expect(el.className).toContain('hover:underline');
+    expect(el.className).not.toContain('text-primary');
+  });
+
+  it('ghost-destructive is grey at rest and takes the danger tint only on hover', () => {
+    host.variant = 'ghost-destructive';
+    const el = render();
+    expect(el.className).toContain('text-muted-foreground');
+    expect(el.className).toContain('hover:bg-destructive/10');
+    expect(el.className).toContain('hover:text-destructive');
+    expect(el.className).not.toContain('bg-destructive ');
+    expect(el.className).not.toContain('primary');
+  });
+
+  it('outline-destructive is a destructive outline, never a solid fill', () => {
+    host.variant = 'outline-destructive';
+    const el = render();
+    expect(el.className).toContain('border-destructive/30');
+    expect(el.className).toContain('text-destructive');
+    expect(el.className).toContain('hover:bg-destructive/10');
+    expect(el.className).not.toContain('bg-destructive ');
+    expect(el.className).not.toContain('primary');
+  });
+
+  it('the neutral variants hover to the grey accent and focus with the ink ring', () => {
+    for (const variant of ['ghost', 'outline'] as ButtonVariant[]) {
+      host.variant = variant;
+      const el = render();
+      expect(el.className).withContext(variant).toContain('hover:bg-accent');
+      expect(el.className).withContext(variant).toContain('focus-visible:ring-ring');
+      expect(el.className).withContext(variant).not.toContain('primary');
+    }
+  });
 });

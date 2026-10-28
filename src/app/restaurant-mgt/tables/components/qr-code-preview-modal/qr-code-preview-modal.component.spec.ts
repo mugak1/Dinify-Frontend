@@ -410,4 +410,33 @@ describe('QrCodePreviewModalComponent', () => {
       expect(fakeDoc.write).not.toHaveBeenCalled();
     });
   });
+
+  // The regenerate action is a small danger-zone button now. Prove the REAL control a user
+  // clicks still emits — the spec above calls onRegenerate() directly and cannot see a
+  // template that stopped wiring the click.
+  it('emits regenerateRequested when the danger-zone button is clicked in the DOM', async () => {
+    spyOn(QRCode, 'toString').and.returnValue(
+      Promise.resolve('<svg>ok</svg>') as unknown as void,
+    );
+    const t = table({ id: 'abc', qrCredential: 'CRED-abc' });
+    openWithTable(t);
+    await flush();
+    fixture.detectChanges();
+
+    const emitted: RestaurantTable[] = [];
+    component.regenerateRequested.subscribe(x => emitted.push(x));
+    const btn = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="qr-regenerate"]',
+    ) as HTMLButtonElement;
+    expect(btn).withContext('the danger-zone button renders').not.toBeNull();
+    // Danger, one step away: an outline in destructive ink, never a solid fill.
+    expect(btn.className).toContain('border-destructive/30');
+    expect(btn.className).toContain('text-destructive');
+    expect(btn.className).not.toContain('bg-destructive ');
+    expect(btn.textContent).toContain('Regenerate QR');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Danger zone');
+
+    btn.click();
+    expect(emitted).toEqual([t]);
+  });
 });

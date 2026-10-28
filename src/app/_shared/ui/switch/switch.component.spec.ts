@@ -55,4 +55,21 @@ describe('SwitchComponent', () => {
     fixture.detectChanges();
     expect(button().getAttribute('aria-label')).toBe('Item is visible on the menu');
   });
+
+  // An "on" switch is a SELECTED value: ink, never brand red.
+  it('draws the checked track in the selected (ink) token and the unchecked one in input grey', () => {
+    expect(button().className).toContain('bg-input');
+    component.checked = true;
+    fixture.detectChanges();
+    expect(button().className).toContain('bg-selected');
+    expect(button().className).not.toContain('bg-primary');
+  });
+
+  it('keeps a locked "on" switch ink, dimmed rather than recoloured', () => {
+    component.checked = true;
+    component.disabled = true;
+    fixture.detectChanges();
+    expect(button().className).toContain('bg-selected');
+    expect(button().className).toContain('opacity-60');
+  });
 });
