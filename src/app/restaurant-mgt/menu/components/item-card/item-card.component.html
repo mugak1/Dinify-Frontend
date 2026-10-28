@@ -1,8 +1,11 @@
-<div class="group rounded-2xl border border-border p-4 md:p-6 bg-card shadow-sm hover:shadow-md hover:border-border/80 transition-all duration-200 cursor-pointer"
+<!-- bg-card and bg-secondary are bound as a pair (never both): cn()/class order cannot
+     make one win over the other, so the selected fill is set by REMOVING the default. -->
+<div class="group rounded-2xl border border-border p-4 md:p-6 shadow-sm hover:shadow-md hover:border-border/80 transition-all duration-200 cursor-pointer"
   [class.opacity-60]="(!item.available || item.in_stock === false) && !selectionMode"
   [class.ring-2]="isSelected"
-  [class.ring-primary]="isSelected"
-  [class.bg-primary/5]="isSelected"
+  [class.ring-selected]="isSelected"
+  [class.bg-card]="!isSelected"
+  [class.bg-secondary]="isSelected"
   (click)="onCardClick()">
 
   <div class="flex gap-4 md:gap-5">
@@ -13,12 +16,12 @@
         class="flex items-center flex-shrink-0"
         (click)="$event.stopPropagation(); toggleSelect.emit()">
         <div class="h-6 w-6 rounded border-2 flex items-center justify-center transition-colors"
-          [class.bg-primary]="isSelected"
-          [class.border-primary]="isSelected"
+          [class.bg-selected]="isSelected"
+          [class.border-selected]="isSelected"
           [class.bg-background]="!isSelected"
           [class.border-input]="!isSelected">
           @if (isSelected) {
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary-foreground"
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-selected-foreground"
               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
               stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 6 9 17l-5-5"/>

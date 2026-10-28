@@ -91,14 +91,16 @@
         <button
           type="button"
           (click)="selectIcon(null)"
-          [class]="'flex items-center justify-center h-8 w-8 rounded border text-[10px] ' + (icon === null ? 'border-d-red bg-red-50 text-d-red' : 'border-gray-200 text-gray-500 hover:bg-gray-50')"
+          [class]="'flex items-center justify-center h-8 w-8 rounded border text-[10px] ' + (icon === null ? 'border-selected ring-1 ring-selected bg-secondary text-foreground' : 'border-gray-200 text-gray-500 hover:bg-gray-50')"
+          [attr.aria-pressed]="icon === null"
           title="No icon"
         >None</button>
         @for (ic of filteredIcons; track ic.name) {
           <button
             type="button"
             (click)="selectIcon(ic.name)"
-            [class]="'flex items-center justify-center h-8 w-8 rounded border ' + (icon === ic.name ? 'border-d-red bg-red-50 text-d-red' : 'border-gray-200 text-gray-600 hover:bg-gray-50')"
+            [class]="'flex items-center justify-center h-8 w-8 rounded border ' + (icon === ic.name ? 'border-selected ring-1 ring-selected bg-secondary text-foreground' : 'border-gray-200 text-gray-600 hover:bg-gray-50')"
+            [attr.aria-pressed]="icon === ic.name"
             [title]="ic.label"
             [attr.aria-label]="ic.label"
             [innerHTML]="ic.svg"

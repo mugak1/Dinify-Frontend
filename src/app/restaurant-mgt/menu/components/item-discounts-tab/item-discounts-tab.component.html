@@ -101,8 +101,9 @@
           <button
             type="button"
             (click)="toggleDay(day.value)"
+                [attr.aria-pressed]="isDaySelected(day.value)"
                 [class]="isDaySelected(day.value)
-                  ? 'px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground'
+                  ? 'px-4 py-2 rounded-md text-sm font-medium bg-selected text-selected-foreground'
                   : 'px-4 py-2 rounded-md text-sm font-medium border border-input bg-background text-muted-foreground hover:text-foreground'">
             {{ day.label }}
           </button>

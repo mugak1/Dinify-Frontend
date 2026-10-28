@@ -45,7 +45,7 @@
               [class.opacity-50]="isAlreadyAdded(item)"
               [class.cursor-pointer]="!isAlreadyAdded(item)"
               [class.hover:bg-muted/50]="!isAlreadyAdded(item)"
-              [class.bg-primary/5]="isSelected(item)"
+              [class.bg-secondary]="isSelected(item)"
               (click)="toggleItem(item)">
               <!-- Checkbox -->
               <input type="checkbox"

@@ -41,7 +41,7 @@ const PAGE_SIZE = 50;
               <button
                 type="button"
                 class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                [class]="c.key === selectedChip ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
+                [class]="c.key === selectedChip ? 'bg-selected text-selected-foreground' : 'bg-muted text-muted-foreground'"
                 (click)="filterChange.emit(c.key)"
               >
                 {{ c.label }}

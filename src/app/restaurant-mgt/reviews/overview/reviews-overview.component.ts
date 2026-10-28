@@ -5,6 +5,7 @@ import { BehaviorSubject, Subject, of } from 'rxjs';
 import { switchMap, tap, takeUntil, catchError } from 'rxjs/operators';
 import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
+import { DnSegItem, DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
 import { CardErrorComponent } from '../../dashboard/components/card-error/card-error.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ReviewsService } from '../services/reviews.service';
@@ -25,27 +26,22 @@ type TimeframeDays = 30 | 90;
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reviews-overview',
   standalone: true,
-  imports: [CommonModule, RouterModule, PageHeaderComponent, CardComponent, CardErrorComponent, BaseChartDirective],
+  imports: [CommonModule, RouterModule, PageHeaderComponent, CardComponent, CardErrorComponent, BaseChartDirective, DnSegmentedComponent],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header + timeframe toggle (always visible) -->
       <app-page-header title="Reviews">
         <!-- Persistent feed entry + timeframe toggle, grouped on the right -->
         <div actions class="flex items-center gap-3 self-start">
-          <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
-            @for (days of timeframeOptions; track days) {
-              <button
-                type="button"
-                (click)="setTimeframe(days)"
-                class="px-3 py-1.5 text-sm font-medium rounded-sm transition-colors"
-                [class.bg-primary/10]="timeframeDays === days"
-                [class.text-primary]="timeframeDays === days"
-                [class.text-muted-foreground]="timeframeDays !== days"
-              >
-                {{ days }} days
-              </button>
-            }
-          </div>
+          <!-- The chosen timeframe is a SELECTED value (ink), so it is the shared segmented
+               control rather than a hand-rolled copy; the red CTA beside it stays the one action. -->
+          <app-dn-segmented
+            layout="hug"
+            ariaLabel="Timeframe"
+            [items]="timeframeItems"
+            [value]="'' + timeframeDays"
+            (valueChange)="onTimeframeValue($event)"
+          ></app-dn-segmented>
           <!--
             Primary-action slot: solid brand-red CTA to the full reviews feed.
             self-stretch (not a fixed height) makes it exactly as tall as the
@@ -267,6 +263,11 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
   timeframeDays: TimeframeDays = 90;
 
   readonly timeframeOptions: TimeframeDays[] = [30, 90];
+  /** The segmented control speaks strings; `onTimeframeValue` maps back to the number. */
+  readonly timeframeItems: DnSegItem[] = this.timeframeOptions.map((d) => ({
+    value: String(d),
+    label: `${d} days`,
+  }));
   readonly skeletonRows = [1, 2, 3, 4, 5];
 
   chartData: ChartData<'line'> = { labels: [], datasets: [] };
@@ -320,6 +321,11 @@ export class ReviewsOverviewComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  onTimeframeValue(value: string): void {
+    const days = this.timeframeOptions.find((d) => String(d) === value);
+    if (days !== undefined) this.setTimeframe(days);
   }
 
   setTimeframe(days: TimeframeDays): void {
