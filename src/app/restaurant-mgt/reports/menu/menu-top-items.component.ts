@@ -52,7 +52,7 @@ const TOP_N = 6;
           </ol>
           <button
             type="button"
-            class="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-3"
+            class="text-xs text-foreground font-medium hover:underline inline-flex items-center gap-1 mt-3"
             (click)="fullMenu.emit()"
           >
             Full menu

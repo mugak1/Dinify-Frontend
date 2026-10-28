@@ -167,7 +167,7 @@ type TimeframeDays = 30 | 90;
                 <a
                   routerLink="/reviews/feed"
                   [queryParams]="{ view: 'attention' }"
-                  class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-primary hover:text-primary/80"
+                  class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-foreground hover:underline"
                 >
                   View flagged reviews <span aria-hidden="true">→</span>
                 </a>

@@ -11,11 +11,12 @@ export interface StatusMeta {
 }
 
 // Single source of truth for support-issue status -> badge styling + label.
-// Amber (warning) for open and emerald (success) for resolved. Shared by the
-// restaurant Support page and the Dinify-admin triage screen.
+// Amber (warning) for open, grey outline for in progress (a neutral state, so never
+// brand red; distinct from the filled grey of closed) and green (success) for
+// resolved. Its only consumer is the restaurant Support page.
 export const STATUS_META: Record<SupportIssueStatus, StatusMeta> = {
   open: { label: 'Open', variant: 'warning' },
-  in_progress: { label: 'In progress', variant: 'default' },
+  in_progress: { label: 'In progress', variant: 'outline' },
   resolved: { label: 'Resolved', variant: 'success' },
   closed: { label: 'Closed', variant: 'secondary' },
 };

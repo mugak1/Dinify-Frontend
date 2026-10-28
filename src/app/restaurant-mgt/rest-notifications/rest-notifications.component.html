@@ -57,7 +57,7 @@
                 <span class="shrink-0 text-xs text-muted-foreground">{{ n.creation_timestamp.timestamp | date:'MMM d, h:mm a' }}</span>
               </div>
               @if (expandedId === n._id) {
-                <div class="mt-2 text-sm text-muted-foreground break-words [&_a]:text-primary [&_a]:underline"
+                <div class="mt-2 text-sm text-muted-foreground break-words [&_a]:text-foreground [&_a]:underline"
                 [innerHTML]="(n.email || n.sms) | safe:'html'"></div>
               }
             </div>

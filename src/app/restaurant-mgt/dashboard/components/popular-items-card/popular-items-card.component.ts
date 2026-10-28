@@ -91,7 +91,7 @@ import { formatCurrency } from '../../utils/format.utils';
           <!-- Footer link -->
           <a
             routerLink="/reports"
-            class="text-xs text-primary hover:underline flex items-center gap-1 mt-3 sm:mt-4"
+            class="text-xs text-foreground font-medium hover:underline flex items-center gap-1 mt-3 sm:mt-4"
           >
             See full list
             <svg aria-hidden="true" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

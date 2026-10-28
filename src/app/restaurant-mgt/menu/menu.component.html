@@ -7,16 +7,17 @@ visible title bar, so the page heading is a screen-reader-only landmark. -->
   <div
     class="flex items-center gap-2 px-5 md:px-6 py-2 border-b border-neutral-200 bg-neutral-50">
     @if (auth.currentRestaurantRole?.roles?.includes('owner') && (auth.currentRestaurant?.first_time_menu_approval_decision === 'submit' || restaurantProfile?.first_time_menu_approval_decision === 'submit')) {
-      <button
+      <!-- The one action of the approval bar, so it is the shared solid primary. -->
+      <button app-dn-button
         (click)="approveMenu('approve')"
-        class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+        class="ml-auto">
         Approve Menu
       </button>
     }
     @if ((auth.currentRestaurantRole?.roles?.includes('manager') || auth.currentRestaurantRole?.roles?.includes('owner')) && (auth.currentRestaurant?.first_time_menu_approval_decision === 'pending' || restaurantProfile?.first_time_menu_approval_decision === 'pending')) {
-      <button
+      <button app-dn-button
         (click)="approveMenu('submit')"
-        class="ml-auto inline-flex items-center rounded-md border border-primary text-primary px-4 py-1.5 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+        class="ml-auto">
         Submit Menu
       </button>
     }
@@ -91,8 +92,9 @@ visible title bar, so the page heading is a screen-reader-only landmark. -->
               <span class="hidden sm:inline">Search</span>
             </button>
             <!-- Preview Menu button -->
-            <button (click)="previewOpen = true"
-              class="inline-flex items-center gap-1 border border-primary text-primary rounded-md px-4 py-2 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+            <!-- Previewing is secondary, so it is a neutral outline, not a second red. -->
+            <button app-dn-button variant="outline" (click)="previewOpen = true"
+              class="gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>

@@ -113,11 +113,11 @@
     <!-- Enhanced preview card -->
     @if (discountAmount > 0 && !isAmountTooHigh) {
       <div
-        class="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        class="rounded-lg border border-border bg-secondary p-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
             <span class="block text-xs text-muted-foreground">Final price</span>
-            <span class="block text-lg font-bold text-primary">UGX {{ formatUGX(priceAfterDiscount) }}</span>
+            <span class="block text-lg font-bold text-foreground">UGX {{ formatUGX(priceAfterDiscount) }}</span>
           </div>
           <div>
             <span class="block text-xs text-muted-foreground">Savings</span>

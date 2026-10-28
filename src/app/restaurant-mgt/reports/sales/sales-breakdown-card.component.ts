@@ -25,7 +25,7 @@ import { SalesBreakdownRow } from './sales-view';
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
           <h2 class="text-card-title text-foreground">{{ title }}</h2>
           <div class="flex items-center gap-4">
-            <button type="button" class="text-xs text-primary hover:underline" (click)="toggleNetFocus()">
+            <button type="button" class="text-xs text-foreground font-medium hover:underline" (click)="toggleNetFocus()">
               {{ netFocus ? 'Show all columns' : 'Net only' }}
             </button>
             <app-report-export-bar

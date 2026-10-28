@@ -112,7 +112,7 @@
             <!-- Sold out badge -->
             @if (item.in_stock === false) {
               <span
-                class="text-xs font-semibold bg-d-red-soft text-d-red px-2 py-0.5 rounded-full inline-flex items-center">
+                class="text-xs font-semibold bg-destructive/10 text-destructive px-2 py-0.5 rounded-full inline-flex items-center">
                 Sold out
               </span>
             }
@@ -293,8 +293,10 @@
 
       <!-- Row 2: Price -->
       <div class="flex items-center gap-2 mt-2">
+        <!-- tone="neutral": in the portal a price is information (ink), not brand red. -->
         <app-price-display
           size="menu-card"
+          tone="neutral"
           [original]="originalPrice"
           [effective]="effectivePrice">
         </app-price-display>

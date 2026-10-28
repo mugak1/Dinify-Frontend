@@ -75,8 +75,8 @@
         </div>
         <!-- Remove Badge dropdown -->
         <div class="relative">
+          <!-- Reversible, so a neutral outline rather than danger red. -->
           <button app-dn-button variant="outline" size="default"
-            class="text-destructive"
             (click)="removeBadgeOpen = !removeBadgeOpen; addBadgeOpen = false">
             <span class="flex items-center gap-1.5">
               Remove Badge

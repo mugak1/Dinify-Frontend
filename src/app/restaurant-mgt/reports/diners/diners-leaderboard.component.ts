@@ -65,7 +65,7 @@ const PAGE_SIZE = 50;
               }
             </ol>
             @if (rows.length > recentN) {
-              <button type="button" class="text-xs text-primary hover:underline mt-3" (click)="viewAll()">
+              <button type="button" class="text-xs text-foreground font-medium hover:underline mt-3" (click)="viewAll()">
                 View all ({{ rows.length }})
               </button>
             }
