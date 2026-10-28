@@ -16,8 +16,12 @@
  *   peer-facts            read receipts, verify public ones, observe peer serving
  *   prepare-publisher     install the reviewed publisher lock, scripts disabled, and
  *                         measure it (the gate; no credential)
- *   assess                a FRESH advisory query over the candidate's retained graph, the
- *                         pinned scanner and the prepared toolchain (the gate)
+ *   assess-scan           a FRESH advisory query over the candidate's retained graph, the
+ *                         pinned scanner and the prepared toolchain (the gate; no token)
+ *   advisory-dates        ask GitHub when the advisories the certification did not date
+ *                         became reportable (the gate; the one assessment step holding
+ *                         the job's token, and it runs no scanner)
+ *   assess                date, decide and write the fresh assessment (the gate; no token)
  *   decide                the decision + the admitted record + a shadow-mode summary (and,
  *                         for an unreadable Admin identity, the off-hours note)
  *   readiness            is a refusal EXACTLY the recorded waiting state of a
@@ -55,7 +59,9 @@ import {
 } from '../dependency-audit/lib/audit.mjs';
 import { DIAGNOSTIC_MAX_BYTES, collect, readDiagnosticEvents, retainedInventory, writeReplay } from '../dependency-audit/lib/retained.mjs';
 import { annotateProvenance, inventory, lockEntries, scannerEnvironment, toolingScope } from '../dependency-audit/lib/npm.mjs';
-import { ADVISORIES_FILE, advisoryIds, applyDates, buildAdvisoryEvidence, fetchAdvisories, readAdvisoryEvidence } from '../dependency-audit/lib/advisories.mjs';
+import {
+  ADVISORIES_FILE, GHSA_RE, advisoryIds, answersFrom, applyDates, assembleAdvisoryEvidence, buildAdvisoryEvidence, fetchAdvisories, readAdvisoryEvidence,
+} from '../dependency-audit/lib/advisories.mjs';
 import { evaluate, headline } from '../dependency-audit/lib/core.mjs';
 import { buildManifest, buildProvenance, validateManifest } from './lib/manifest.mjs';
 import { readEnvironmentLiteral, readIntArrayConstant, readIntConstant, hostingHooks } from './lib/source.mjs';
@@ -909,28 +915,37 @@ function diagnosticNotes({ outDir, graphs, unfinished }) {
  *   scanner      the pinned scanner's own installed graph;
  *   publisher    the prepared toolchain's installed graph —
  * decided under the TRUSTED dependency-audit policy (this checkout's, not the
- * candidate's). No candidate script, hook or build runs. Each graph records its own
- * start and finish from the clock; `--now` (the trusted workflow's reading) is the
- * collection start. Writes nothing, and exits 2, when the evidence it needs is unusable:
- * an assessment that could not be performed is recorded as not performed, never passed.
+ * candidate's). No candidate script, hook or build runs.
+ *
+ * THREE COMMANDS, THREE STEPS, because of who may hold the job's token (CI-signal A-2
+ * follow-up). The scan runs the pinned scanner — third-party code — so the step that runs
+ * it holds NO token. Asking GitHub with the token happens in a separate step that runs
+ * only this checkout's code and no scanner. And the decision is made after both:
+ *   assess-scan      (no token) the three scans; then which inherited high tooling
+ *                    advisories still need a date: those the candidate's certification
+ *                    did not already answer with one. Writes the raw output, the scan
+ *                    state and that list.
+ *   advisory-dates   (the job's read-only token; no scanner, no candidate code) asks
+ *                    GitHub about exactly that list, and writes what came back.
+ *   assess           (no token) dates the findings from the certification's retained
+ *                    record first and the fetched answers second, decides, and writes
+ *                    assessment.json with ONE advisory record holding every answer used.
+ * Each graph records its own start and finish from the clock; `--now` (the trusted
+ * workflow's reading) is the collection start. An assessment that could not be performed
+ * writes no assessment.json and exits 2: not performed is recorded, never passed.
  */
-function cmdAssess(args) {
-  const f = flags(args);
+const SCAN_STATE_SCHEMA = 'dinify.release.assessment-scan/1';
+const ADVISORY_REQUESTS_SCHEMA = 'dinify.release.advisory-requests/1';
+/** No promotion needs more: one request per distinct inherited high tooling advisory. */
+const MAX_ADVISORY_REQUESTS = 500;
+
+/** The inputs every assessment command checks first; exits 2 when they are unusable. */
+function assessmentInputs(f) {
   const { policy, check } = readPolicy();
   if (!check.ok) fail('the trusted policy is invalid');
-  // ONE-SECOND RESOLUTION, truncated — the resolution of the workflow's own clock readings
-  // (`date -u +%Y-%m-%dT%H:%M:%SZ`), which every later boundary compares these times with.
-  // A millisecond reading here would put an assessment decided in the same second as the
-  // next step's reading AFTER that reading, and be refused as decided in the future.
-  const clock = () => new Date(Math.floor(Date.now() / 1000) * 1000).toISOString().replace(/\.000Z$/, 'Z');
-  const startedAt = String(f.now ?? '');
-  if (!Number.isFinite(Date.parse(startedAt)) || Date.parse(startedAt) > Date.now() + 60_000) fail('assess needs --now: the collection start, from the trusted workflow');
   const candidateRoot = String(f.candidate);
-  const toolingDir = String(f.tooling);
-  const outDir = String(f.out);
   const certification = readJson(f.certification);
   const tooling = readJson(f['tooling-facts']);
-
   const observation = observeCandidate(candidateRoot);
   const evidence = observation.dependencyEvidence;
   if (observation.provenance?.legacy || evidence.state !== 'present' || evidence.problems.length > 0 || evidence.unsafe.length > 0) {
@@ -948,6 +963,38 @@ function cmdAssess(args) {
     stderr.write('release: assessment NOT PERFORMED — the certifying run lists no candidate artifact\n');
     exit(2);
   }
+  return { policy, candidateRoot, certification, tooling, observation, evidence, listed };
+}
+
+/**
+ * The dates the candidate's CERTIFICATION already retained for `ids`, taken only from the
+ * record its evidence lists — the bytes re-read here are held to the digest the evidence
+ * record states for them, so a record that is not the certified one contributes nothing
+ * and is reported. Only an answer that yields a date is reused; anything else is asked
+ * again. A candidate certified with no advisory record simply has nothing to reuse.
+ */
+function certifiedAnswers(candidateRoot, evidence, ids) {
+  const listedEntry = (evidence.record?.files ?? []).find((x) => x.path === RETAINED_ADVISORIES);
+  if (!listedEntry) return answersFrom(undefined, undefined, ids, { source: 'certification', requireDate: true });
+  const path = join(candidateRoot, EVIDENCE_DIR, RETAINED_ADVISORIES);
+  return answersFrom(existsSync(path) ? readFileSync(path) : undefined, listedEntry.sha256, ids, { source: 'certification', requireDate: true });
+}
+
+const writeJson = (path, value) => writeFileSync(String(path), `${JSON.stringify(value, null, 2)}\n`);
+
+function cmdAssessScan(args) {
+  const f = flags(args);
+  // ONE-SECOND RESOLUTION, truncated — the resolution of the workflow's own clock readings
+  // (`date -u +%Y-%m-%dT%H:%M:%SZ`), which every later boundary compares these times with.
+  // A millisecond reading here would put an assessment decided in the same second as the
+  // next step's reading AFTER that reading, and be refused as decided in the future.
+  const clock = () => new Date(Math.floor(Date.now() / 1000) * 1000).toISOString().replace(/\.000Z$/, 'Z');
+  const startedAt = String(f.now ?? '');
+  if (!Number.isFinite(Date.parse(startedAt)) || Date.parse(startedAt) > Date.now() + 60_000) fail('assess-scan needs --now: the collection start, from the trusted workflow');
+  for (const key of ['state', 'requests']) if (typeof f[key] !== 'string') fail(`assess-scan needs --${key}`);
+  const { candidateRoot, tooling, observation, evidence, listed } = assessmentInputs(f);
+  const toolingDir = String(f.tooling);
+  const outDir = String(f.out);
 
   const { policy: auditPolicy, problems: auditProblems } = loadAuditPolicy(ROOT);
   const incomplete = [...auditProblems];
@@ -1004,23 +1051,111 @@ function cmdAssess(args) {
       if (diagnosticsRoot) rmSync(diagnosticsRoot, { recursive: true, force: true });
     }
   }
-  // THE CLOCK, after every scan, for the findings that carry provenance — the publisher's
-  // never do. The record is written into the assessment, and the dates are read back from
-  // those very bytes, as `decide` and the publisher will read them.
+  const finishedAt = clock();
+  // WHAT STILL NEEDS A DATE: the advisories a date could defer, less those the
+  // certification already answered with one. Only these reach the token-holding step.
+  const ids = advisoryIds(findings);
+  const certified = certifiedAnswers(candidateRoot, evidence, ids);
+  const requests = certified.problems.length > 0 ? [] : certified.missing;
+  writeJson(f.state, {
+    schema: SCAN_STATE_SCHEMA,
+    candidate: { artifactId: listed.id, treeDigest: observation.observedTreeDigest, manifestDigest: observation.manifestDigest, evidenceRecordDigest: evidence.recordDigest },
+    startedAt,
+    finishedAt,
+    graphs,
+    findings,
+    incomplete,
+    unfinishedGraphs,
+    toolingTreeDigest: walkedTooling?.treeDigest ?? null,
+  });
+  writeJson(f.requests, { schema: ADVISORY_REQUESTS_SCHEMA, ids: requests });
+  stderr.write(`release: scanned ${Object.keys(graphs).join(', ') || 'nothing'}; ${ids.length} advisory date(s) needed, ${certified.answers.length} retained by the certification, ${requests.length} to ask GitHub\n`);
+  print({ scanned: Object.keys(graphs), needed: ids.length, reused: certified.answers.length, requests: requests.length, startedAt, finishedAt });
+  exit(0);
+}
+
+/**
+ * THE TOKEN-HOLDING STEP. It runs this checkout's code and nothing else — no scanner, no
+ * package manager, no candidate file is executed or even read — and asks GitHub, with the
+ * job's read-only token where the workflow supplies one (GH_TOKEN), only about the
+ * advisories `assess-scan` listed. What it writes is data the next step binds by digest.
+ * A request that fails is an answer without a date; a list it cannot read asks nothing.
+ */
+function cmdAdvisoryDates(args) {
+  const f = flags(args);
+  if (typeof f.requests !== 'string' || typeof f.out !== 'string') fail('advisory-dates needs --requests and --out');
+  let ids;
+  try {
+    const doc = readJson(f.requests);
+    ids = doc?.schema === ADVISORY_REQUESTS_SCHEMA && Array.isArray(doc.ids) ? doc.ids : null;
+  } catch { ids = null; }
+  if (!ids || !ids.every((id) => typeof id === 'string' && GHSA_RE.test(id)) || ids.length > MAX_ADVISORY_REQUESTS) {
+    fail('advisory-dates: the request list is not one assess-scan writes — nothing was asked');
+  }
+  const unique = [...new Set(ids)].sort();
+  if (unique.length === 0) {
+    stderr.write('release: no advisory needs a date that the certification did not already retain — nothing asked\n');
+    print({ requested: 0 });
+    exit(0);
+  }
+  const asked = fetchAdvisories(unique);
+  const built = buildAdvisoryEvidence({ answers: asked.answers.map((a) => ({ ...a, source: 'fetched' })), authenticated: asked.authenticated });
+  writeFileSync(String(f.out), built.bytes);
+  const dated = readAdvisoryEvidence(built.bytes, built.sha256).dates;
+  const answered = unique.filter((id) => typeof dated.get(id) === 'string').length;
+  stderr.write(`release: asked GitHub about ${unique.length} advisory record(s) ${asked.authenticated ? 'with the job\'s token' : 'unauthenticated'}; ${answered} answered with a date; sha256 ${built.sha256}\n`);
+  print({ requested: unique.length, answered, authenticated: asked.authenticated, sha256: built.sha256 });
+  exit(0);
+}
+
+function cmdAssess(args) {
+  const f = flags(args);
+  const clock = () => new Date(Math.floor(Date.now() / 1000) * 1000).toISOString().replace(/\.000Z$/, 'Z');
+  if (typeof f.state !== 'string') fail('assess needs --state, written by assess-scan');
+  const { policy, candidateRoot, certification, tooling, observation, evidence, listed } = assessmentInputs(f);
+  const outDir = String(f.out);
+  let state = null;
+  try { state = existsSync(f.state) ? readJson(f.state) : null; } catch { state = null; }
+  if (!state || state.schema !== SCAN_STATE_SCHEMA || !Array.isArray(state.findings) || !Array.isArray(state.incomplete) || typeof state.graphs !== 'object') {
+    stderr.write('release: assessment NOT PERFORMED — the scan did not complete (no scan state from assess-scan)\n');
+    exit(2);
+  }
+  const c = state.candidate ?? {};
+  if (c.artifactId !== listed.id || c.treeDigest !== observation.observedTreeDigest || c.manifestDigest !== observation.manifestDigest || c.evidenceRecordDigest !== evidence.recordDigest) {
+    stderr.write('release: assessment NOT PERFORMED — the scan state is not of this candidate\n');
+    exit(2);
+  }
+  const { policy: auditPolicy } = loadAuditPolicy(ROOT);
+  const incomplete = [...state.incomplete];
+  const findings = state.findings;
+  const { startedAt, finishedAt, graphs, unfinishedGraphs } = state;
+
+  // THE CLOCK: each advisory a date could defer is dated from the certification's retained
+  // record first and the token-holding step's answers second; one record holding every
+  // answer used is written into the assessment, and the dates are read back from those
+  // very bytes, as `decide` and the publisher will read them. An advisory neither answered
+  // carries no date, and so blocks.
   let advisoryRecord = null;
   let dated = findings;
   const ids = advisoryIds(findings);
   if (ids.length > 0) {
-    let asked;
-    try { asked = fetchAdvisories(ids); } catch { asked = { answers: ids.map((id) => ({ id, status: 0, retrievedAt: null, error: 'fetch_failed', body: null })), authenticated: false }; }
-    const built = buildAdvisoryEvidence(asked);
+    const reused = certifiedAnswers(candidateRoot, evidence, ids);
+    incomplete.push(...reused.problems);
+    const answersPath = typeof f.answers === 'string' ? f.answers : null;
+    const answersBytes = answersPath && existsSync(answersPath) ? readFileSync(answersPath) : undefined;
+    const fetched = answersFrom(answersBytes, answersBytes ? sha256Hex(answersBytes) : undefined, reused.missing, { source: 'fetched' });
+    incomplete.push(...fetched.problems);
+    const built = assembleAdvisoryEvidence(ids, { reused, fetched });
     writeFileSync(join(outDir, ADVISORIES_FILE), built.bytes);
-    advisoryRecord = { file: ADVISORIES_FILE, sha256: built.sha256, requested: ids.length, authenticated: built.doc.authenticated };
+    advisoryRecord = {
+      file: ADVISORIES_FILE, sha256: built.sha256, requested: ids.length, authenticated: built.doc.authenticated,
+      reused: reused.answers.length, fetched: fetched.answers.length,
+      ...(answersBytes ? { fetchedSha256: sha256Hex(answersBytes) } : {}),
+    };
     const read = readAdvisoryEvidence(built.bytes, built.sha256);
     incomplete.push(...read.problems);
     dated = applyDates(findings, read.dates);
   }
-  const finishedAt = clock();
   const records = auditPolicy?.records ?? [];
   const decidedAt = clock();
   const result = evaluate({ incomplete, findings: dated, records, now: decidedAt });
@@ -1042,7 +1177,7 @@ function cmdAssess(args) {
     },
     policy: { path: AUDIT_POLICY_PATH, sha256: sha256Hex(readFileSync(join(ROOT, AUDIT_POLICY_PATH))) },
     scanner: { package: 'npm', version: auditPolicy?.scanner?.version ?? null, registry: auditPolicy?.scanner?.registry ?? null },
-    tooling: { package: tooling.package, version: tooling.version, treeDigest: walkedTooling?.treeDigest ?? null },
+    tooling: { package: tooling.package, version: tooling.version, treeDigest: state.toolingTreeDigest ?? null },
     startedAt,
     finishedAt,
     decidedAt,
@@ -1054,10 +1189,13 @@ function cmdAssess(args) {
   };
   writeFileSync(join(outDir, ASSESSMENT_DOC), `${JSON.stringify(doc, null, 2)}\n`);
   stderr.write(`${doc.headline}\n`);
-  const notes = diagnosticNotes({ outDir, graphs, unfinished: unfinishedGraphs });
+  const notes = diagnosticNotes({ outDir, graphs, unfinished: unfinishedGraphs ?? [] });
   for (const line of notes.plain) stderr.write(`${line}\n`);
   if (f.summary) {
-    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}. Provenance: application and scanner against the candidate's own retained locks; the publisher graph has none. Clock: ${advisoryRecord ? `${advisoryRecord.requested} advisory record(s) asked of GitHub (${advisoryRecord.authenticated ? 'with a token' : 'unauthenticated'}), retained as ${ADVISORIES_FILE}` : 'no advisory needed a date'}.\n\n${notes.markdown}`);
+    const clockLine = advisoryRecord
+      ? `${advisoryRecord.requested} advisory date(s) needed: ${advisoryRecord.reused} reused from the certification's retained record, ${advisoryRecord.fetched} asked of GitHub by a separate token-holding step that runs no scanner (${advisoryRecord.authenticated ? 'every answer from an authenticated request' : 'not every answer from an authenticated request'}), retained as ${ADVISORIES_FILE}`
+      : 'no advisory needed a date';
+    appendFileSync(String(f.summary), `### Fresh dependency assessment\n\n**${doc.headline}**\n\nCollected ${startedAt} → ${finishedAt}, decided ${decidedAt}, by run ${doc.assessor.runId}.${doc.assessor.runAttempt} under the trusted audit policy. Graphs: ${Object.entries(graphs).map(([g, r]) => `${g} (${r.counts?.locked ?? '?'} locked, ${r.observation})`).join(', ')}. Provenance: application and scanner against the candidate's own retained locks; the publisher graph has none. Clock: ${clockLine}.\n\n${notes.markdown}`);
   }
   print({ outcome: doc.outcome, exitCode: doc.exitCode, counts: doc.counts, startedAt, finishedAt, decidedAt });
   exit(doc.exitCode);
@@ -1589,6 +1727,8 @@ try {
     case 'peer-receipt': cmdPeerReceipt(rest); break;
     case 'peer-facts': await cmdPeerFacts(rest); break;
     case 'prepare-publisher': cmdPreparePublisher(rest); break;
+    case 'assess-scan': cmdAssessScan(rest); break;
+    case 'advisory-dates': cmdAdvisoryDates(rest); break;
     case 'assess': cmdAssess(rest); break;
     case 'decide': cmdDecide(rest); break;
     case 'readiness': cmdReadiness(rest); break;
@@ -1599,7 +1739,7 @@ try {
     case 'storage-reviewed': cmdStorageReviewed(rest); break;
     case 'self-test': cmdSelfTest(); break;
     default:
-      stderr.write('usage: node release/cli.mjs <stamp|observe|certification-facts|git-facts|serve-state|peer-receipt|peer-facts|decide|readiness|preflight|verify-served|outcome|storage-reviewed|self-test> [...]\n');
+      stderr.write('usage: node release/cli.mjs <stamp|observe|certification-facts|git-facts|serve-state|peer-receipt|peer-facts|prepare-publisher|assess-scan|advisory-dates|assess|decide|readiness|preflight|verify-served|outcome|storage-reviewed|self-test> [...]\n');
       exit(2);
   }
 } catch (error) {

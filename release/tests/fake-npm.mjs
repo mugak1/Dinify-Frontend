@@ -24,7 +24,9 @@
  *           the store: a package.json, plus any files the store holds for it. A lock
  *           entry marked hasInstallScript RECORDS whether its script would have run —
  *           it runs unless --ignore-scripts was passed — so a caller that forgot the flag
- *           is caught. Every invocation is logged with its argv.
+ *           is caught. Every invocation is logged with its argv, and with the NAMES of any
+           token-named variables in its environment plus whether any value is shaped like a
+           GitHub token — never a value — so a test can prove no credential reached it.
  *   audit   reads package-lock.json (as `npm audit` reads the lockfile graph) and writes
  *           an `npm audit --json` report shaped as npm 11 writes one: vulnerabilities by
  *           name with nodes and via, counters by severity, the dependency total, and
@@ -58,7 +60,12 @@ const path = require('path');
 const args = process.argv.slice(2);
 const cwd = process.cwd();
 const log = process.env.FAKE_NPM_LOG;
-if (log) fs.appendFileSync(log, JSON.stringify({ args, cwd }) + '\\n');
+// What a test needs to prove no credential reached the scanner, and never the credential
+// itself: the NAMES of any token-named variables, and whether any value is shaped like a
+// GitHub token (gh[pousr]_…), under whatever name it arrived.
+const credentials = Object.keys(process.env).filter((k) => /TOKEN/i.test(k)).sort();
+const tokenShaped = Object.values(process.env).some((v) => /\\bgh[pousr]_[A-Za-z0-9_]{8,}/.test(String(v)));
+if (log) fs.appendFileSync(log, JSON.stringify({ args, cwd, credentials, tokenShaped }) + '\\n');
 const command = args.find((a) => !a.startsWith('-'));
 const flag = (name) => args.includes(name);
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));

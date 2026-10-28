@@ -45,8 +45,12 @@ globalThis.fetch = async function fakeAdvisoryFetch(input, init = {}) {
   }
   const entry = table()[id];
   if (entry?.hang) {
+    // A real request in flight holds the event loop open (its socket); an AbortSignal.timeout
+    // timer does not. Without this the process would simply exit before the bound fired,
+    // and a "timeout" would never be the answer observed.
+    const held = setInterval(() => {}, 1_000);
     await new Promise((_, reject) => {
-      const stop = () => reject(Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }));
+      const stop = () => { clearInterval(held); reject(Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' })); };
       if (init.signal?.aborted) stop(); else init.signal?.addEventListener('abort', stop, { once: true });
     });
   }
