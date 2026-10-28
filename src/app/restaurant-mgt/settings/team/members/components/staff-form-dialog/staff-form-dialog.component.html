@@ -54,7 +54,7 @@
       <form [formGroup]="RegisterForm" (ngSubmit)="submit()" class="space-y-4">
         <!-- Phone (drives the two-step lookup) -->
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Phone <span class="text-d-red">*</span></label>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Phone <span class="text-destructive">*</span></label>
           <app-dinify-phone-input
             [class.field-invalid]="submitted && !checked && !RegisterForm.get('phone_number')?.value"
             (valueChange)="onInputChange($event)"
@@ -106,7 +106,7 @@
 
         @if (checked) {
           <div>
-            <label for="staff-add-role" class="block text-xs font-medium text-gray-700 mb-1">Role <span class="text-d-red">*</span></label>
+            <label for="staff-add-role" class="block text-xs font-medium text-gray-700 mb-1">Role <span class="text-destructive">*</span></label>
             <select
               id="staff-add-role"
               formControlName="roles"
