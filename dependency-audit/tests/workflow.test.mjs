@@ -96,9 +96,12 @@ describe('the audit is part of BOTH required validation paths', () => {
     });
   }
 
-  it('CONTRACT (CI-signal A-2): the token the clock uses grants nothing new — the permissions are unchanged', () => {
-    assert.equal(CI.permissions, undefined, 'ci.yml declares no permissions, so the job keeps the repository default');
-    assert.equal(CI.jobs.validate.permissions, undefined);
+  // ORACLE CORRECTED (A-2 follow-up, item 4): this pinned that ci.yml declared NO
+  // permissions, so `validate` kept the repository's default grant. It now holds the same
+  // read-only grant certify.yml gives the same commands, at the JOB, and nothing more.
+  it('CONTRACT (CI-signal A-2 and its follow-up): the token the clock uses grants nothing new — validate reads the repository and nothing else', () => {
+    assert.equal(CI.permissions, undefined, 'the grant is the job\'s, not the workflow\'s');
+    assert.deepEqual(CI.jobs.validate.permissions, { contents: 'read' });
     assert.deepEqual(CERTIFY.permissions, { contents: 'read' });
     assert.equal(CERTIFY.jobs.certify.permissions, undefined);
     // The scheduled re-scan has no base and therefore defers nothing: unchanged.
