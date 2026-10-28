@@ -222,6 +222,10 @@ reported **zero** vulnerable packages where it otherwise reports seven, while
 the scanner runs with every dependency type `--include`d, `--package-lock=true`, the
 public registry named explicitly, and `NODE_ENV`, `NODE_OPTIONS` and every `npm_*`
 variable removed from its environment.
+The job's token and the runner's five file-command paths (`GITHUB_ENV`, `GITHUB_PATH`,
+`GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY`, `GITHUB_STATE`) are withheld from it too. That is not a
+boundary, since a process on the same runner can still find those files; the boundary is that
+the scanner is the pinned, integrity-checked npm, run with scripts disabled.
 The audit level is pinned too (`--audit-level=low`, npm's own default): it moves only the
 exit code, never the JSON body, but npm reads it from any npmrc the environment scrub
 cannot reach, and the exit-status check above assumes it. Measured with the pinned npm, an
@@ -230,10 +234,12 @@ outranks every npmrc, so the invocation and the check cannot disagree.
 
 ## Exceptions and triage records
 
-**One record is approved today**: the 2026-10-24 TOOLING exception for the scanner's
-bundled `undici` 6.29.0 (GHSA-xjj6-f33q-929c), which expires on 2026-11-30 (see "2026-10-24,
-the scanner graph" below). `records` was empty from 2026-10-23 until then. Nothing is
-triaged, and lower-severity tooling findings are still reported and still require triage.
+**Three records are approved today**, all TOOLING exceptions for the scanner's bundled
+`undici` 6.29.0 and all expiring on 2026-11-30: GHSA-xjj6-f33q-929c since 2026-10-24 (see
+"2026-10-24, the scanner graph" below), and GHSA-2m5v-pch6-74hx and GHSA-qrxm-fqhp-jwvm since
+2026-10-28 (see "2026-10-28, the scanner graph"). `records` was empty from 2026-10-23 until
+2026-10-24. Nothing is triaged, and lower-severity tooling findings are still reported and
+still require triage.
 
 Five exception records, all TOOLING scope, existed before then. Three were approved
 2026-09-30 for the SCANNER graph's bundled `undici` and `brace-expansion`, and two on
@@ -483,6 +489,39 @@ Three entries change and none are added or removed. There is no `package.json` e
 override and no `--force`, and `firebase-tools` stays at 15.31.0. **The head audits within
 policy with 1 finding requiring triage**, `@opentelemetry/core` 1.30.1, which still has no
 fix this graph can take (the table above).
+
+**2026-10-28, the scanner graph: two more `undici` advisories, deferred until 2026-11-03, and
+two exception records cover them until 2026-11-30.** GHSA-2m5v-pch6-74hx (TLS options dropped
+in `Agent`) and GHSA-qrxm-fqhp-jwvm (denial of service through a TLS 1.2 certificate-changing
+renegotiation), both high and both fixed in 6.29.1, reach the same bundled `undici` 6.29.0.
+They are inherited, and the audit dates them reportable from 2026-10-27, so Certify run
+`40738435340` on `main` (`88e9eff`) deferred both: **PASSES WITH DATED OBLIGATIONS
+OUTSTANDING: 7 findings, 2 deferred, 1 under approved exception, 4 requiring triage**. From
+00:00 UTC on 2026-11-03 each would block every validation, certification and readiness run.
+
+No scanner change can clear them, for the reason given for GHSA-xjj6-f33q-929c: measured from
+the published tarballs at 18:39Z, npm 11.21.1 and npm 12.2.1, both published 2026-10-15 and
+still the latest, bundle `undici` 6.29.0. The records `scanner-undici-GHSA-2m5v-pch6-74hx`
+(alias `npm:1243476`) and `scanner-undici-GHSA-qrxm-fqhp-jwvm` (alias `npm:1243479`, both as
+this repository's scan reports them) follow the GHSA-xjj6-f33q-929c record field by field:
+the same version, path and TOOLING scope, owner mugak1, approved in #784, expiring 2026-11-30
+and removed in the same change that moves the scanner to an npm bundling `undici` 6.29.1 or
+later. Admin carries the same two records.
+
+Their applicability was re-measured, not copied. Both mechanisms need `undici` loaded and
+making a TLS connection. On Node 24.22.1, the same probe (`Module._resolveFilename` and
+`module.registerHooks`, the scanner's exact argv, cwd and scrubbed environment) resolved no
+file under `node_modules/undici` in either audit, and both reports were complete.
+`node-gyp/bin/node-gyp.js` was resolved and none of the modules it requires was, so none of
+its code ran. Five positive controls each recorded 95 `undici` files, each in the expected
+process or thread: requiring `node-gyp/lib/download.js`, requiring `undici` from the bundle,
+importing it, and requiring it in a worker thread and in a child process. The accepted
+residual risk is the same as the GHSA-xjj6-f33q-929c record's.
+
+**The head audits passing only with approved exceptions: 7 findings, 0 deferred, 3 under
+approved exception, 4 requiring triage** (`@opentelemetry/core` 1.30.1, and the scanner's
+`ip-address` 10.7.2 and `undici` GHSA-4qv8-2p9j-2685 and GHSA-9fm3-97px-rjf6, which no record
+covers). No triage record was added.
 
 ## What consumes this evidence (D08 B2.2)
 
