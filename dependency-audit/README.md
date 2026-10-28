@@ -85,15 +85,20 @@ rule already treats it for the required fields. Each deferred finding gets a
 `deferred_finding` reason naming its deadline, and the headline names the earliest one.
 
 **Byte for byte when nothing is deferred.** Until A-2 no adapter emitted `provenance` or
-`reportableSince`, so no result carried the new outcome; since A-2 they are emitted only for
-an audit given a base (next section). A result in which nothing was deferred is byte-identical to the one the evaluator produced before
-the rule: `counts.deferred`, a finding's `deadline` and the `deferred_finding` reason
-appear ONLY when a deferral applied. That is load-bearing, because the release consumers
-re-decide retained results and compare `counts` exactly; an always-present `deferred: 0`
-would make every result certified before A-1 unreproducible. `tests/core.test.mjs` pins
-the full result of each of the 41 vectors that predate the rule, by digest; the same
-digests are pinned in Dinify-Backend's Python suite, because the two evaluators already
-produced identical bytes.
+`reportableSince`, so no result carried the new outcome; since A-2 they are emitted only
+for an audit given a base (next section). A result in which nothing was deferred is
+byte-identical to the one the evaluator produced before the rule: `counts.deferred`, a
+finding's `deadline` and the `deferred_finding` reason appear ONLY when a deferral
+applied. That is load-bearing, because the release consumers re-decide retained results
+and compare `counts` exactly; an always-present `deferred: 0` would make every result
+certified before A-1 unreproducible. **The runtime self-test holds it too** (A-2
+follow-up): `lib/self-test.mjs` compares each vector's deferred deadlines exactly and
+refuses a result that carries `counts.deferred`, a `deadline` or the `deferred_finding`
+reason when the vector deferred nothing, so a build whose unit suite was never run still
+cannot pass the gate with an evaluator that emits `deferred: 0` or dates a deadline a day
+late. `tests/core.test.mjs` pins the full result of each of the 41 vectors that predate
+the rule, by digest; the same digests are pinned in Dinify-Backend's Python suite, because
+the two evaluators already produced identical bytes.
 
 The shared vectors are now 61 (the 41 before, plus 20 deferral vectors appended after
 them), digest `6365e880c55153f5ce50ca144434cb42d5c937be48218445da36cefb8ffb9653`,
@@ -106,30 +111,40 @@ A-1's rule needs two facts per finding. A-2 supplies them from evidence, and not
 can: there is no flag that sets a provenance or a date.
 
 **Provenance is read from a base commit, through git.** `audit --base <commit>` reads
-`package-lock.json` and `dependency-audit/scanner/package-lock.json` as that commit held them
-(`git show`). A finding is `inherited` only when the base lock has an entry at the SAME
-path with the same `version` and the same `integrity`. Anything else is `introduced`: a
-path the base does not hold, a package that moved to another path, a changed version or
-integrity. A base with no lockfile for a graph makes every finding of that graph
-introduced. The base must be in the clone and an ancestor of HEAD; otherwise it is
-recorded as `unavailable`, with the reason, and treated as no base. **With no base** (an
-empty or all-zero `--base`, a push that created a branch, a force push, the scheduled
-re-scan) findings carry no provenance and nothing can be deferred, which is today's rule.
-The collection records the base commit and each base lock's digest, and `evaluate`
-re-derives both from git: a base that no longer reproduces is incomplete
-(`evidence_base_mismatch`).
+`package-lock.json` and `dependency-audit/scanner/package-lock.json` as that commit held
+them (`git show`). A finding is `inherited` only when the base lock has an entry at the
+SAME path with the same `version` and the same `integrity`. Anything else is `introduced`:
+a path the base does not hold, a package that moved to another path, a changed version or
+integrity. **A BUNDLED entry carries no `integrity` of its own** (it ships inside its
+bundling package's tarball: all 143 bundled entries of the committed scanner lock's 144),
+so for it a version match proves nothing — npm 12 could bundle a different file under the
+same version. It is `inherited` only when the NEAREST ancestor that has an integrity (the
+bundling package) is itself unchanged in the base, by path, version and integrity;
+otherwise it is `introduced` (A-2 follow-up, `npm.mjs` `provenanceOf`). A base with no
+lockfile for a graph makes every finding of that graph introduced. The base must be in the
+clone and an ancestor of HEAD; otherwise it is recorded as `unavailable`, with the reason,
+and treated as no base. **With no base** (an empty or all-zero `--base`, a push that
+created a branch, a force push, the scheduled re-scan) findings carry no provenance and
+nothing can be deferred, which is today's rule. The collection records the base commit and
+each base lock's digest, and `evaluate` re-derives both from git: a base that no longer
+reproduces is incomplete (`evidence_base_mismatch`).
 
 **The date is GitHub's, asked once and retained.** After the scans `lib/advisories.mjs`
 asks `GET https://api.github.com/advisories/{ghsa_id}` once per distinct GHSA id among the
-findings that carry a provenance, at any severity, from a child process: 15 seconds per
-request, no redirects, and the token only when one is given (`GH_TOKEN`, which the scanner
-never sees). `reportableSince` is the UTC calendar date of `github_reviewed_at`, else of
-`published_at`. Every answer (a record, a failure, a rate limit, a timeout) is retained in
-`advisories.json`, each body with its own digest, and the collection names the file's
-digest. **An answer that is not a record of THAT advisory with a valid date gives no date,
-and the finding blocks**: an outage, a 403 or a 404 never defers anything, and never makes
-the audit incomplete either. A tampered or missing `advisories.json` is incomplete
-(`evidence_tampered`, `evidence_unreadable`).
+findings a date could DEFER — an INHERITED, HIGH, TOOLING finding (`awaitsDate`) — from a
+child process: 15 seconds per request, no redirects, and the token only when one is given
+(`GH_TOKEN`, which the scanner never sees). A critical, a runtime finding, a lower
+severity and an introduced finding are never asked about: a date changes nothing for them,
+so they simply carry no date (the A-2 follow-up narrowed this; before it every finding
+with a provenance was asked about). Dating is unchanged: a date the record holds is
+applied to any finding with a provenance, so evidence retained before the narrowing
+re-decides byte-identically. `reportableSince` is the UTC calendar date of
+`github_reviewed_at`, else of `published_at`. Every answer (a record, a failure, a rate
+limit, a timeout) is retained in `advisories.json`, each body with its own digest, and the
+collection names the file's digest. **An answer that is not a record of THAT advisory with
+a valid date gives no date, and the finding blocks**: an outage, a 403 or a 404 never
+defers anything, and never makes the audit incomplete either. A tampered or missing
+`advisories.json` is incomplete (`evidence_tampered`, `evidence_unreadable`).
 
 **Re-deciding never asks.** `evaluate` and every release consumer read `advisories.json`
 back and re-apply its dates. A result re-decided from its retained evidence at the same
@@ -137,8 +152,8 @@ instant is byte-identical; the deadline passing is the same evidence re-decided 
 later instant. Evidence without `advisories.json` (every result before A-2) carries no
 provenance and re-decides exactly as before.
 
-**What a run costs**: one request per distinct GHSA id on findings with provenance in the
-application and scanner graphs, and none without a base. Unauthenticated, GitHub allows
+**What a run costs**: one request per distinct GHSA id on inherited high tooling findings in
+the application and scanner graphs, and none without a base. Unauthenticated, GitHub allows
 60 requests an hour per address; with the job token, 1,000 an hour per repository.
 
 **The summary says why a high was not deferred**: `blocking (introduced: not in the base)`,
@@ -149,16 +164,22 @@ application and scanner graphs, and none without a base. Unauthenticated, GitHub
 **Where the base comes from in this repository.** `validate` (`ci.yml`) passes
 `github.event.pull_request.base.sha || github.event.before`: the pull request's base on a
 PR, the previous tip on a push to main. `certify` (`certify.yml`) passes
-`github.event.before`. Both pass `github.token` as `GH_TOKEN`; neither workflow's
-permissions changed. The weekly `audit.yml` re-scan passes no base, so it decides by
-today's rule. **At promotion** the fresh assessment (`release/cli.mjs assess`) gives the
-application and scanner graphs provenance against the candidate's OWN retained locks
-(nothing can be introduced into fixed bytes, so an unchanged package is inherited and a
-trusted scanner that moved since certification makes what changed introduced) and asks
-GitHub WITHOUT a token, so an unanswered request blocks. **The publisher graph is never
-given provenance**: a high there blocks whatever GitHub says, and is never asked about.
-`decide` and the publish preflight re-read the retained `advisories.json` and never ask;
-an obligation's deadline cuts the assessment's promotion window short. See
+`github.event.before`. Both pass `github.token` as `GH_TOKEN`, and both grant it
+`contents: read` and nothing else: `certify.yml` at the workflow, and `validate` at the
+job since the A-2 follow-up (it used to take the repository's default grant). The weekly
+`audit.yml` re-scan passes no base, so it decides by today's rule. **At promotion** the
+fresh assessment (`release/cli.mjs assess`) gives the application and scanner graphs
+provenance against the candidate's OWN retained locks (nothing can be introduced into
+fixed bytes, so an unchanged package is inherited and a trusted scanner that moved since
+certification makes what changed introduced). **Its dates are REUSED from the
+certification** wherever the candidate's own retained `advisories.json` (digest-bound in
+its evidence record) holds a date for the advisory; only an id it does not date is asked
+about, and that question is asked WITH the job's token from a separate step that runs no
+scanner, no package manager and no candidate code (A-2 follow-up; see
+`release/README.md`). Every advisory nobody could date still blocks. **The publisher graph
+is never given provenance**: a high there blocks whatever GitHub says, and is never asked
+about. `decide` and the publish preflight re-read the retained `advisories.json` and never
+ask; an obligation's deadline cuts the assessment's promotion window short. See
 `release/README.md` → "CI-signal A-2".
 
 **An incomplete audit fails the required check.** An empty report, truncated JSON, an error

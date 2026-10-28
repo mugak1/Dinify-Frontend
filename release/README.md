@@ -554,10 +554,13 @@ candidate's own, and the scanner graph is compared with the candidate's retained
 lock, so a trusted scanner that moved since certification makes what changed
 `introduced`, which blocks. **The publisher graph is never given provenance**: a high
 there blocks whatever GitHub says, it is never asked about, and an assessment that
-claims otherwise is refused (`assessment.publisher_provenance`). The assessment asks
-GitHub WITHOUT a token (the publish workflow gives this step none), so an unanswered or
-rate-limited request leaves no date and the inherited high blocks. The answers are
-retained beside the assessment as `advisories.json` and named by it.
+claims otherwise is refused (`assessment.publisher_provenance`). Only an INHERITED HIGH
+TOOLING finding needs a date (nothing else can be deferred), and its date is REUSED from
+the certification's retained `advisories.json` where that record holds one; only the ids
+it does not date are asked about, by a separate step holding the job's token (see the
+next section). An unanswered, timed-out or rate-limited request leaves no date and the
+inherited high blocks. Every answer used — reused and fetched — is retained beside the
+assessment as ONE `advisories.json` and named by it.
 
 **The re-decisions never ask.** `decide`, the preflight and the last boundary read the
 assessment back through `inspectAssessment`, which re-reads the retained
@@ -582,6 +585,63 @@ the forged re-reads, `decide()` at each side of the deadline, a certification bu
 carrying an obligation) and by two executed `publish.yml` scenarios in
 `workflow-simulation.test.mjs` (reviewed two days ago: published; eight days ago:
 `dependency.assessment_blocking`).
+
+### A-2 follow-up: dates are reused, and the token reaches only a step that runs no scanner
+
+The review of A-2 found that the gate's fresh assessment asked GitHub for advisory dates
+with NO token — inside the step that runs the pinned scanner, which may hold none — so an
+unauthenticated rate limit (60 an hour per runner address) could block a promotion whose
+dates the certification had already retained. It also asked about every finding with a
+provenance, at any severity, although only an inherited high tooling finding can be
+deferred. The fix, in order of preference:
+
+1. **Reuse.** The certification's `dependency-evidence/audit/advisories.json` is bound by
+   digest in the candidate's evidence record. `assess` reads it back through the same
+   reader every consumer uses, requiring a usable date, and takes each date it holds
+   (`source: "certification"` in the new record). Nothing is asked about those ids.
+2. **Ask the rest from a trusted step, with the token.** `assess` is now three commands of
+   the trusted CLI in three workflow steps:
+
+   | step | command | token | runs |
+   |---|---|---|---|
+   | Scan the candidate's dependencies now | `assess-scan` | none | the pinned scanner; writes the scan state and the list of ids the certification does not date |
+   | Ask GitHub when the undated inherited advisories became reportable | `advisory-dates` | `GH_TOKEN: ${{ github.token }}` | only this checkout's CLI and the advisory child: no scanner, no package manager, no candidate code; nothing when the list is empty |
+   | Assess the candidate's dependencies now | `assess` | none | no scanner; reads both files, dates, decides, writes `assessment.json` |
+
+   The scan state is bound to the candidate (artifact id, tree, manifest and evidence
+   record digests) and `assess` refuses one that does not match (NOT PERFORMED). Fetched
+   answers are `source: "fetched"`; an id neither reused nor answered is recorded as
+   `no_answer` (`source: "none"`) and its finding blocks. The record's `authenticated` is
+   true only when every answer came from an authenticated request. The assessment's
+   `advisories` entry adds `reused`, `fetched` and (when the dates step wrote a file)
+   `fetchedSha256` beside the unchanged `file`, `sha256`, `requested` and `authenticated`.
+3. An unauthenticated fallback was NOT needed: the workflow can give the dates step the
+   token without giving it to any process that runs the scanner or candidate code.
+
+**What it costs, measured in the executed `publish.yml` scenario** (`workflow-simulation`,
+an inherited high whose advisory appeared after certification): before, ONE request,
+unauthenticated, from the scanning step; after, ONE request, authenticated, from the dates
+step. When the certification already dated the advisory (`obligations.test.mjs`, with
+GitHub answering 403 at promotion): before, measured on unmodified `a736f5c` with the same
+fixture, ONE unauthenticated request whose 403 left the finding undated, so the promotion
+was `blocking`; after, ZERO requests, and the reused date defers the finding.
+
+**No token reaches the scanner, asserted AT the scanner.** The recorded npm now logs, for
+every invocation, the NAMES of any token-named variables in its environment and whether any
+value is shaped like a GitHub token (never a value). `dependency-evidence.test.mjs` runs the
+scan with GH_TOKEN and GITHUB_TOKEN in its own environment and shows all three scanner
+invocations received neither (the scrub in `scannerEnvironment`), and a CONTROL shows the
+check sees a token under a name the scrub does not know — which is why the workflow keeps
+every token out of the scanning step altogether. The executed scenario asserts the same over
+every npm invocation of a whole `publish.yml` run, that the dates step held the token and
+ran no npm, and `workflow-drift.test.mjs` pins the steps statically: the scan and assess
+steps name no credential, the dates step's environment is exactly `GH_TOKEN` and its script
+is one `advisory-dates` command.
+
+**Determinism.** Re-decisions are unchanged: `decide`, the preflight and the last boundary
+read the one retained `advisories.json`, which now also carries `source` per answer (an
+answer without one is read exactly as before), so an assessment written before this change
+re-reads identically.
 
 ### Known limits
 
