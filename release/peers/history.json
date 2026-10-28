@@ -1252,6 +1252,106 @@
         "commit": "13a0e54ca4d8c0e1f66fcde7121a7ed2d7654816",
         "_note": "A public read of /release.txt returned it, no-store, at 2026-10-27T17:52:00Z. Deploy Admin run 40553113097 promoted it, and its own public-origin assertion step succeeded (conclusions read through the API, logs not read)."
       }
+    },
+    {
+      "id": "2026-10-28-pilot-19",
+      "_note": "Admin 4eb249f (the #54 merge), reviewed with #51 (1557572) and #52 (4abdb19): CI-signal A-2, its follow-ups, and a Dependabot S-1 entry. deploy.yml gains ten comment lines and one evaluate-step environment key (CERTIFIED_CANDIDATE_DIR); every job's permissions, needs and uses are unchanged, and deploy is still the only id-token holder.",
+      "approved": {
+        "admin": "4eb249f633788107a555bd25c40f965056a468c2",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "4eb249f633788107a555bd25c40f965056a468c2",
+          "receiptDigest": "sha256:22661fda703a7afd62cfd5b439091d6a7614f91b622798a830908318edd6277c",
+          "tree": "01512f61fe9c64c2f10ad47af890fcc49ada93ef",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "0f70ddfa78d3832035fec8decd5c166ccd7ce9ac"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "source-protection-recorded"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "18b0f38a0bc72fc9c8fed1e57c8fb7d5cb9ce026",
+          "tree": "01512f61fe9c64c2f10ad47af890fcc49ada93ef",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        },
+        {
+          "commit": "15575723d893bb91195dc456f96c2921529d9f6a",
+          "_note": "The #51 merge, deployed by Deploy Admin run 40589112513."
+        },
+        {
+          "commit": "4abdb197f69a60994774111fcc5f6f8c497c5a51",
+          "_note": "The #52 merge, deployed by Deploy Admin run 40696786799."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "15575723d893bb91195dc456f96c2921529d9f6a",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:6b7db23655dec692b7594a36a9d3ecc8f5e26b7708bab2f658459a7a65f0f405",
+          "evidence": "recorded",
+          "runs": [
+            40589508096
+          ],
+          "_note": "Job 122489740806, on a1b50b2. The digest is the one the readiness record printed in the job log states; the run's gate artifact (12771974114) could not be downloaded from the environment that prepared this refresh."
+        },
+        {
+          "adminServes": "4abdb197f69a60994774111fcc5f6f8c497c5a51",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:d10e3b79b2b6e99dc3da0cdc5b4886c8c21854345cfa8949ec7bf324eeae8626",
+          "evidence": "recorded",
+          "runs": [
+            40718471449
+          ],
+          "_note": "Job 122922524817, on 84cf093. Read from the job log's readiness record, as above."
+        },
+        {
+          "adminServes": "4eb249f633788107a555bd25c40f965056a468c2",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:43e8197796f0092bff6a5fbeaa6d7cf8681e387dadd97cee443332646fbf37e4",
+          "evidence": "constructed",
+          "_note": "No readiness run observed 4eb249f under pilot-18: the last, 40718471449 (on 84cf093), read the peers at 15:41Z, before #54 merged at 16:04Z and Deploy Admin run 40722674704 promoted it. Computed from the rule with a passing assessment."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "4eb249f633788107a555bd25c40f965056a468c2",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [],
+          "decisionDigest": "sha256:01536d3a916fdbb6bdc3b7350301d6ee68709510b484dc2f80f883a10e675972",
+          "evidence": "constructed",
+          "_note": "The four-reason wait. It names no Admin commit, so its digest is pilot-18's, which readiness run 40559132077 (on 28dbfad, job 122383092938) recorded under pilot-18; no run has recorded it under pilot-19."
+        }
+      ],
+      "adminServingObserved": {
+        "commit": "4eb249f633788107a555bd25c40f965056a468c2",
+        "_note": "A public read of /release.txt returned it, no-store, at 2026-10-28T16:37:22Z. Deploy Admin run 40722674704 promoted it (conclusion read through the API, logs not read)."
+      }
     }
   ]
 }

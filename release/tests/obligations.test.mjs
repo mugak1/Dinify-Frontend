@@ -66,14 +66,23 @@ async function prepare(w) {
   return { out, facts };
 }
 
-async function assess(w, t) {
+/**
+ * The fresh assessment as the gate runs it: `assess-scan` (no token), `advisory-dates`
+ * (the job's token unless `token` is empty; no scanner), then `assess` (no token).
+ */
+async function assess(w, t, { token = 'job-token', candidate = w.candidate.dir, skipDates = false, forgeAnswers = null } = {}) {
   const out = join(tempDir('assess'), 'assessment');
-  const r = await cli([
-    'assess', '--candidate', w.candidate.dir, '--tooling', t.out, '--tooling-facts', t.facts,
-    '--certification', w.certificationPath, '--out', out, '--run-id', '9300', '--run-attempt', '1', '--now', iso(Date.now()),
-  ], { root: w.fixture.dir, env: w.npm.env() });
+  const work = tempDir('assess-state');
+  const [state, requests, answers] = ['assessment-scan.json', 'advisory-requests.json', 'advisory-answers.json'].map((n) => join(work, n));
+  const inputs = ['--candidate', candidate, '--tooling', t.out, '--tooling-facts', t.facts, '--certification', w.certificationPath, '--out', out, '--state', state];
+  const scan = await cli(['assess-scan', ...inputs, '--requests', requests, '--now', iso(Date.now())], { root: w.fixture.dir, env: w.npm.env() });
+  const dates = scan.status === 0 && !skipDates
+    ? await cli(['advisory-dates', '--requests', requests, '--out', answers], { root: w.fixture.dir, env: { ...w.npm.env(), ...(token ? { GH_TOKEN: token } : {}) } })
+    : null;
+  if (forgeAnswers !== null) writeFileSync(answers, forgeAnswers);
+  const r = await cli(['assess', ...inputs, '--answers', answers, '--run-id', '9300', '--run-attempt', '1'], { root: w.fixture.dir, env: w.npm.env() });
   const doc = existsSync(join(out, ASSESSMENT_DOC)) ? JSON.parse(readFileSync(join(out, ASSESSMENT_DOC), 'utf8')) : null;
-  return { r, out, doc };
+  return { r, scan, dates, out, doc, requests, answers };
 }
 
 /** One synthetic scanner advisory on `name`, and GitHub's record of it reviewed `daysAgo` days ago. */
@@ -103,10 +112,13 @@ describe('the fresh assessment: provenance against the candidate\'s own retained
       assert.equal(f.reportableSince, since);
       assert.equal(f.class, 'deferred');
       assert.equal(f.deadline, dateOf(Date.parse(`${since}T00:00:00Z`) + 7 * DAY));
-      // The record is retained in the assessment and named by it; one request, unauthenticated.
+      // The record is retained in the assessment and named by it. The certification retained
+      // no date for this advisory, so it was asked about once — by the token-holding step,
+      // WITH the job's token (before the A-2 follow-up: unauthenticated, from the scan step).
       assert.ok(existsSync(join(a.out, ADVISORIES_FILE)));
       assert.equal(a.doc.advisories.file, ADVISORIES_FILE);
-      assert.deepEqual(w.npm.githubRequests().slice(-1), [{ id: G_HELPER, authorized: false }]);
+      assert.deepEqual(w.npm.githubRequests().slice(-1), [{ id: G_HELPER, authorized: true }]);
+      assert.deepEqual([a.doc.advisories.reused, a.doc.advisories.fetched, a.doc.advisories.authenticated], [0, 1, true]);
       // The privileged re-read, offline, from the retained files: clean.
       assert.deepEqual(inspectAssessment(readFilesUnder(a.out).files).problems, []);
       assert.deepEqual(assessmentObligations(a.doc), [{ advisory: G_HELPER, path: HELPER_PATH, deadline: f.deadline }]);
@@ -123,12 +135,19 @@ describe('the fresh assessment: provenance against the candidate\'s own retained
     } finally { reset(w); }
   });
 
-  test('REGRESSION (SYNTHETIC advisory): an inherited CRITICAL is refused at once — blocking', async () => {
+  // ORACLE CORRECTED (A-2 follow-up): this test used to assert the critical was DATED and
+  // still blocked. A date can defer nothing but an inherited high tooling finding, so a
+  // critical is no longer asked about at all; what it pinned — critical has no window and
+  // blocks — is unchanged.
+  test('REGRESSION (SYNTHETIC advisory): an inherited CRITICAL is refused at once — blocking, and not even asked about', async () => {
     advise(w, { severity: 'critical', daysAgo: 1 });
+    const asked = w.npm.githubRequests().length;
     try {
       const a = await assess(w, t);
       assert.equal(a.doc.outcome, 'blocking');
-      assert.equal(finding(a.doc, HELPER_PATH).reportableSince !== undefined, true, 'dated, and still blocking: critical has no window');
+      assert.equal('reportableSince' in finding(a.doc, HELPER_PATH), false, 'a date could not defer a critical, so none is sought');
+      assert.equal(w.npm.githubRequests().length, asked);
+      assert.deepEqual(JSON.parse(readFileSync(a.requests, 'utf8')).ids, []);
     } finally { reset(w); }
   });
 
@@ -253,6 +272,104 @@ describe('promotion: one clock, at every boundary that reads the assessment', ()
     const doc = baseline().dependencies.assessment.doc;
     assert.deepEqual(assessmentObligations(doc), []);
     assert.equal(assessmentExpiresAt({ assessment: doc, policy: POLICY }), '2026-09-23T11:50:00Z');
+  });
+});
+
+describe('promotion REUSES the dates its certification retained, and asks only for the rest — with the token, from a step that runs no scanner (A-2 follow-up)', () => {
+  let w;
+  let t;
+  const G_NEW = 'GHSA-nnnn-eeee-wwww';
+  before(async () => {
+    w = await world({
+      auditBase: true,
+      certificationAdvisories: { advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: G_HELPER }] },
+      githubAdvisories: { [G_HELPER]: { reviewed: iso(Date.now() - 2 * DAY) } },
+    });
+    t = await prepare(w);
+  });
+  const certifiedDate = () => {
+    const doc = JSON.parse(readFileSync(join(w.candidate.dir, 'dependency-evidence', RETAINED_ADVISORIES), 'utf8'));
+    return JSON.parse(doc.advisories.find((x) => x.id === G_HELPER).body).github_reviewed_at.slice(0, 10);
+  };
+  const entries = (a) => JSON.parse(readFileSync(join(a.out, ADVISORIES_FILE), 'utf8')).advisories;
+
+  test('CONTRACT: the date comes from the certification\'s retained record — GitHub refusing now changes nothing, and is not even asked', async () => {
+    w.npm.setAdvisories({ advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: G_HELPER }] });
+    w.npm.setGitHubAdvisories({ [G_HELPER]: { status: 403, body: '{"message":"API rate limit exceeded"}' } });
+    const asked = w.npm.githubRequests().length;
+    try {
+      const a = await assess(w, t);
+      assert.equal(a.r.status, 0, a.r.stderr);
+      assert.equal(a.doc.outcome, 'obligations_pending');
+      assert.equal(finding(a.doc, HELPER_PATH).reportableSince, certifiedDate());
+      assert.equal(w.npm.githubRequests().length, asked, 'nothing was asked of GitHub');
+      assert.deepEqual(JSON.parse(readFileSync(a.requests, 'utf8')).ids, [], 'the token-holding step was handed nothing to ask');
+      assert.equal(existsSync(a.answers), false);
+      assert.deepEqual(entries(a).map((e) => [e.id, e.source]), [[G_HELPER, 'certification']]);
+      assert.deepEqual([a.doc.advisories.reused, a.doc.advisories.fetched], [1, 0]);
+      assert.deepEqual(inspectAssessment(readFilesUnder(a.out).files).problems, [], 'the publisher\'s offline re-read accepts the reused answer');
+    } finally { reset(w); }
+  });
+
+  test('CONTRACT: an advisory the certification did not date is asked about by the token-holding step, WITH the token — and only that one', async () => {
+    w.npm.setAdvisories({ advisories: [
+      { name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: G_HELPER },
+      { name: 'bundled', versions: ['1.0.0'], severity: 'high', ghsa: G_NEW },
+    ] });
+    w.npm.setGitHubAdvisories({ [G_NEW]: { reviewed: iso(Date.now() - DAY) } });
+    const asked = w.npm.githubRequests().length;
+    try {
+      const a = await assess(w, t);
+      assert.equal(a.r.status, 0, a.r.stderr);
+      assert.equal(a.doc.outcome, 'obligations_pending', JSON.stringify(a.doc.reasons));
+      assert.deepEqual(JSON.parse(readFileSync(a.requests, 'utf8')).ids, [G_NEW]);
+      assert.deepEqual(w.npm.githubRequests().slice(asked), [{ id: G_NEW, authorized: true }], 'one request, carrying the token');
+      assert.deepEqual(entries(a).map((e) => [e.id, e.source]), [[G_NEW, 'fetched'], [G_HELPER, 'certification']].sort());
+      assert.equal(a.doc.findings.filter((f) => f.class === 'deferred').length, 2);
+      assert.deepEqual(inspectAssessment(readFilesUnder(a.out).files).problems, []);
+    } finally { reset(w); }
+  });
+
+  test('REGRESSION: GitHub REFUSING the token-holding step (403) leaves the new advisory undated — it BLOCKS', async () => {
+    w.npm.setAdvisories({ advisories: [{ name: 'bundled', versions: ['1.0.0'], severity: 'high', ghsa: G_NEW }] });
+    w.npm.setGitHubAdvisories({ [G_NEW]: { status: 403, body: '{"message":"API rate limit exceeded"}' } });
+    try {
+      const a = await assess(w, t);
+      assert.equal(a.r.status, 1);
+      assert.equal(a.doc.outcome, 'blocking');
+      assert.equal('reportableSince' in a.doc.findings.find((f) => f.advisory === G_NEW), false);
+      assert.deepEqual(entries(a).map((e) => [e.id, e.status, e.source]), [[G_NEW, 403, 'fetched']]);
+    } finally { reset(w); }
+  });
+
+  test('REGRESSION: the token-holding step NEVER ANSWERING (its step failed, or was skipped) leaves the advisory undated — it BLOCKS, and the record says no answer came', async () => {
+    w.npm.setAdvisories({ advisories: [{ name: 'bundled', versions: ['1.0.0'], severity: 'high', ghsa: G_NEW }] });
+    w.npm.setGitHubAdvisories({ [G_NEW]: { reviewed: iso(Date.now() - DAY) } });
+    try {
+      const a = await assess(w, t, { skipDates: true });
+      assert.equal(a.doc.outcome, 'blocking');
+      assert.deepEqual(entries(a).map((e) => [e.id, e.error, e.source]), [[G_NEW, 'no_answer', 'none']]);
+      assert.equal(a.doc.advisories.authenticated, false);
+    } finally { reset(w); }
+  });
+
+  test('REGRESSION (slow: GitHub\'s 15-second request bound): a TIMEOUT in the token-holding step leaves the advisory undated — it BLOCKS', async () => {
+    w.npm.setAdvisories({ advisories: [{ name: 'bundled', versions: ['1.0.0'], severity: 'high', ghsa: G_NEW }] });
+    w.npm.setGitHubAdvisories({ [G_NEW]: { hang: true } });
+    try {
+      const a = await assess(w, t);
+      assert.equal(a.doc.outcome, 'blocking');
+      assert.deepEqual(entries(a).map((e) => [e.id, e.error, e.source]), [[G_NEW, 'timeout', 'fetched']]);
+    } finally { reset(w); }
+  });
+
+  test('CONTROL: an answers file that is not one advisory-dates writes is refused as INCOMPLETE, never read as dates', async () => {
+    w.npm.setAdvisories({ advisories: [{ name: 'bundled', versions: ['1.0.0'], severity: 'high', ghsa: G_NEW }] });
+    try {
+      const a = await assess(w, t, { forgeAnswers: '{"schema":"something else"}' });
+      assert.equal(a.doc.outcome, 'incomplete');
+      assert.ok(a.doc.reasons.some((r) => r.code === 'advisories_malformed'), JSON.stringify(a.doc.reasons));
+    } finally { reset(w); }
   });
 });
 
