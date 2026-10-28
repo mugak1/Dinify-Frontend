@@ -12,7 +12,9 @@
 # │ B2.2): prepares the publisher toolchain from the reviewed lock (pinned     │
 # │ npm, scripts disabled), and ASSESSES — a real advisory query, now — the    │
 # │ candidate's retained lock graph, the pinned scanner and that toolchain     │
-# │ under the trusted audit policy; retains both as artifacts. Evaluates       │
+# │ under the trusted audit policy (the scan holds no token; a separate step   │
+# │ that runs no scanner asks GitHub for any advisory date the certification   │
+# │ did not retain); retains both as artifacts. Evaluates                      │
 # │ release/lib/decide.mjs and emits the decision AND the admitted record      │
 # │ (every identity the publisher must reproduce) with its digest.             │
 # ├─ publish ──────────────────────────────────────────────────────────────────┤
@@ -263,9 +265,48 @@ jobs:
       # THE FRESH ASSESSMENT: a real advisory query, now, over the candidate's RETAINED lock
       # graph (a scan-only replay of the two files its evidence binds — no candidate script,
       # hook or build runs), the pinned scanner and the toolchain just prepared, under THIS
-      # checkout's audit policy. Its exit status is the audit's (0 pass, 1 blocking, 2
-      # incomplete or not performed); the decision reads the document it wrote, so a
-      # failure here is a named refusal, not a skipped check.
+      # checkout's audit policy. THREE STEPS, because of who may hold the job's token
+      # (CI-signal A-2 follow-up):
+      #   scan     runs the pinned scanner — third-party code — so it holds NO token;
+      #   dates    holds the job's read-only token and runs only this checkout's CLI: no
+      #            scanner, no package manager, no candidate code. It asks GitHub only about
+      #            the inherited high tooling advisories the candidate's certification did
+      #            not already date (usually none: those dates are reused from the record
+      #            the certification retained, digest-bound in its evidence);
+      #   assess   holds no token: dates, decides and writes assessment.json, binding every
+      #            answer it used — reused and fetched — into ONE retained advisory record.
+      # The assess step's exit status is the audit's (0 pass, 1 blocking, 2 incomplete or not
+      # performed); the decision reads the document it wrote, so a failure in any of the
+      # three is a named refusal, not a skipped check. An advisory nobody could date blocks.
+      - name: Scan the candidate's dependencies now
+        id: scan
+        if: steps.prepare.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node release/cli.mjs assess-scan \
+            --candidate candidate \
+            --tooling tooling \
+            --tooling-facts tooling.json \
+            --certification certification.json \
+            --out assessment \
+            --state assessment-scan.json \
+            --requests advisory-requests.json \
+            --now "$now" > assessment-scan-outcome.json
+
+      - name: Ask GitHub when the undated inherited advisories became reportable
+        id: dates
+        if: steps.scan.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node release/cli.mjs advisory-dates \
+            --requests advisory-requests.json \
+            --out advisory-answers.json > advisory-dates-outcome.json
+
       - name: Assess the candidate's dependencies now
         id: assess
         if: steps.prepare.outcome == 'success'
@@ -275,16 +316,16 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           node release/cli.mjs assess \
             --candidate candidate \
             --tooling tooling \
             --tooling-facts tooling.json \
             --certification certification.json \
             --out assessment \
+            --state assessment-scan.json \
+            --answers advisory-answers.json \
             --run-id "$RUN_ID" \
             --run-attempt "$RUN_ATTEMPT" \
-            --now "$now" \
             --summary "$GITHUB_STEP_SUMMARY" > assessment-outcome.json
 
       # Both are RETAINED as their own artifacts, named by this run and attempt, so the

@@ -319,6 +319,24 @@ function assertCredentialConfined(world, result) {
   }
 }
 
+/**
+ * NO TOKEN REACHED THE SCANNER, asserted AT the scanner: every npm invocation of the whole
+ * run, read from the recorded npm's own log, held neither GH_TOKEN nor GITHUB_TOKEN and no
+ * value shaped like a GitHub token; and no step that runs the scanner names a token.
+ */
+function assertScannerHeldNoToken(world, result) {
+  const calls = world.npm.calls().filter((c) => c.args);
+  assert.ok(calls.some((c) => c.args[0] === 'audit'), 'premise: the scanner ran');
+  for (const c of calls) {
+    assert.ok(!c.credentials.includes('GH_TOKEN') && !c.credentials.includes('GITHUB_TOKEN'), `npm ${c.args[0]} received ${c.credentials}`);
+    assert.equal(c.tokenShaped, false, `npm ${c.args[0]} received a value shaped like a GitHub token`);
+  }
+  for (const name of ['Prepare the publisher toolchain', 'Scan the candidate\'s dependencies now', 'Assess the candidate\'s dependencies now']) {
+    const s = step(result, 'gate', name);
+    assert.ok(!Object.values(s.env ?? {}).includes(TOKEN), `the token reached the environment of "${name}"`);
+  }
+}
+
 function assertNoPersistedCredentials(result) {
   for (const s of result.steps.filter((x) => x.action === 'actions/checkout' && x.outcome === 'success')) {
     assert.equal(s.observed.persistCredentials, false, `checkout "${s.name}" left a token in its git config`);
@@ -1252,7 +1270,19 @@ describe('publish.yml — the dependency half: certification evidence, a fresh a
     world.npm.setAdvisories({ advisories: [{ name: 'helper', versions: ['3.1.0'], severity: 'high', ghsa: 'GHSA-oooo-bbbb-llll' }] });
     world.npm.setGitHubAdvisories({ 'GHSA-oooo-bbbb-llll': { reviewed, published: reviewed } });
     const event = automaticEvent(world, 5102);
-    const result = await simulate(world, event);
+    // Which npm invocations each gate step made, read from the recorded npm's own log.
+    const npmBy = {};
+    let mark = 0;
+    let current = null;
+    const hooks = {
+      beforeStep: ({ job, step: name }) => {
+        const all = world.npm.calls();
+        if (current) npmBy[current] = all.slice(mark);
+        mark = all.length;
+        current = `${job} :: ${name}`;
+      },
+    };
+    const result = await simulate(world, event, hooks);
     assert.equal(decisionOf(result).decision, 'PROCEED', JSON.stringify(codesOf(decisionOf(result))));
     assert.equal(preflightOf(result).ok, true);
     assert.equal(outcomeOf(result), 'PUBLISHED_VERIFIED');
@@ -1265,8 +1295,16 @@ describe('publish.yml — the dependency half: certification evidence, a fresh a
     const record = retained(world, event, 'record.json');
     assert.equal(record.dependencies.assessment.outcome, 'obligations_pending');
     assert.match(result.jobs.gate.summary, /deferred, the first blocking from 00:00 UTC on \d{4}-\d{2}-\d{2}/);
-    // One request, made by the gate's assess step, without a token; nothing downstream asked.
-    assert.deepEqual(world.npm.githubRequests(), [{ id: 'GHSA-oooo-bbbb-llll', authorized: false }]);
+    // The certification ran before this advisory existed, so it retained no date for it:
+    // ONE request, made by the gate's dates step WITH the job's token; nothing downstream
+    // asked (the preflight and the last boundary re-read the retained record).
+    assert.deepEqual(world.npm.githubRequests(), [{ id: 'GHSA-oooo-bbbb-llll', authorized: true }]);
+    const dates = step(result, 'gate', 'Ask GitHub when the undated inherited advisories became reportable');
+    assert.equal(dates.outcome, 'success');
+    assert.equal(dates.env.GH_TOKEN, TOKEN, 'premise: the dates step really held the token');
+    assert.deepEqual(npmBy['gate :: Ask GitHub when the undated inherited advisories became reportable'], [], 'the token-holding step ran npm');
+    assert.equal(npmBy['gate :: Scan the candidate\'s dependencies now'].filter((c) => c.args?.[0] === 'audit').length, 3, 'premise: the scan step ran the scanner');
+    assertScannerHeldNoToken(world, result);
     assertCandidateUnchanged(world, world.ids.c2);
     assertCredentialConfined(world, result);
   });

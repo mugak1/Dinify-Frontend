@@ -68,22 +68,36 @@ async function prepare(w, { root = w.fixture.dir } = {}) {
   return { r, out, facts, value: existsSync(facts) ? JSON.parse(readFileSync(facts, 'utf8')) : null };
 }
 
-/** `assess` from the fixture checkout, over a COPY of the candidate (so its digest can be compared). */
-async function assess(w, tooling, { candidateDir = w.candidate.dir, now = iso(Date.now()) } = {}) {
+/**
+ * The fresh assessment from the fixture checkout, over a COPY of the candidate (so its
+ * digest can be compared) — as the gate runs it: `assess-scan` (no token), then
+ * `advisory-dates` (the job's token, no scanner), then `assess` (no token).
+ */
+async function assess(w, tooling, { candidateDir = w.candidate.dir, now = iso(Date.now()), token = 'job-token', scanEnv = {} } = {}) {
   const dir = tempDir('assess');
   const candidate = join(dir, 'candidate');
   cpSync(candidateDir, candidate, { recursive: true });
   const out = join(dir, 'assessment');
   const summary = join(dir, 'summary.md');
   writeFileSync(summary, '');
+  const work = tempDir('assess-state');
+  const [state, requests, answers] = ['assessment-scan.json', 'advisory-requests.json', 'advisory-answers.json'].map((n) => join(work, n));
   const before = artifactDigest(candidate);
-  const r = await cli([
-    'assess', '--candidate', candidate, '--tooling', tooling.out, '--tooling-facts', tooling.facts,
-    '--certification', w.certificationPath, '--out', out, '--run-id', '9200', '--run-attempt', '1', '--now', now,
-    '--summary', summary,
-  ], { root: w.fixture.dir, env: w.npm.env() });
+  const inputs = ['--candidate', candidate, '--tooling', tooling.out, '--tooling-facts', tooling.facts, '--certification', w.certificationPath, '--out', out, '--state', state];
+  // The npm invocations each of the three steps made, so a test can say which step ran what.
+  const npm = {};
+  let mark = w.npm.calls().length;
+  const since = () => { const all = w.npm.calls(); const made = all.slice(mark); mark = all.length; return made; };
+  const scan = await cli(['assess-scan', ...inputs, '--requests', requests, '--now', now], { root: w.fixture.dir, env: { ...w.npm.env(), ...scanEnv } });
+  npm.scan = since();
+  const dates = scan.status === 0
+    ? await cli(['advisory-dates', '--requests', requests, '--out', answers], { root: w.fixture.dir, env: { ...w.npm.env(), ...(token ? { GH_TOKEN: token } : {}) } })
+    : null;
+  npm.dates = since();
+  const r = await cli(['assess', ...inputs, '--answers', answers, '--run-id', '9200', '--run-attempt', '1', '--summary', summary], { root: w.fixture.dir, env: w.npm.env() });
+  npm.assess = since();
   const doc = existsSync(join(out, 'assessment.json')) ? JSON.parse(readFileSync(join(out, 'assessment.json'), 'utf8')) : null;
-  return { r, out, doc, candidate, before, after: artifactDigest(candidate), summary: readFileSync(summary, 'utf8'), replay: join(dir, 'assessment-replay') };
+  return { r, scan, dates, out, doc, candidate, before, after: artifactDigest(candidate), summary: readFileSync(summary, 'utf8'), replay: join(dir, 'assessment-replay'), requests, answers, npm };
 }
 
 const observe = async (dir) => json((await cli(['observe', '--root', dir])).stdout);
@@ -389,16 +403,46 @@ describe('assess — a real query, now, over the candidate\'s RETAINED graph, th
     assert.match(a.summary, /### Fresh dependency assessment/);
   });
 
+  test('CONTRACT (A-2 follow-up): no token reaches the scanner — asserted AT the scanner, even when the scanning step\'s own environment carried one', async () => {
+    const a = await assess(w, t, { scanEnv: { GH_TOKEN: 'ghs_SCANSTEPTOKEN0001', GITHUB_TOKEN: 'ghs_SCANSTEPTOKEN0002' } });
+    assert.equal(a.r.status, 0, a.r.stderr);
+    const audits = a.npm.scan.filter((c) => c.args?.[0] === 'audit');
+    assert.equal(audits.length, 3, 'premise: the scanner really ran, once per graph');
+    // The NAMES the step carried are gone, and no value shaped like a GitHub token arrived
+    // under any name. (Other `*TOKEN*` names the runner itself happens to have are not the
+    // step's, and are not asserted on: the harness strips GH_TOKEN and GITHUB_TOKEN from the
+    // ambient environment, so the two injected values are the only GitHub-shaped ones.)
+    for (const c of audits) {
+      assert.ok(!c.credentials.includes('GH_TOKEN') && !c.credentials.includes('GITHUB_TOKEN'), `the scanner received ${c.credentials}`);
+      assert.equal(c.tokenShaped, false, 'the scanner received a value shaped like a GitHub token');
+    }
+    // The step that holds the token runs no npm at all, and the decision runs none either.
+    assert.deepEqual(a.npm.dates, []);
+    assert.deepEqual(a.npm.assess, []);
+  });
+
+  test('CONTROL: the check above CAN fail — a token under a name the scrub does not know does reach the scanner, which is why the workflow keeps every token out of the scanning step', async () => {
+    const a = await assess(w, t, { scanEnv: { DEPLOY_TOKEN: 'ghs_SCANSTEPTOKEN0003' } });
+    assert.equal(a.r.status, 0, a.r.stderr);
+    const audits = a.npm.scan.filter((c) => c.args?.[0] === 'audit');
+    assert.equal(audits.length, 3);
+    for (const c of audits) {
+      assert.ok(c.credentials.includes('DEPLOY_TOKEN'), `the scanner received ${c.credentials}`);
+      assert.equal(c.tokenShaped, true);
+    }
+  });
+
   test('REGRESSION (run 36283185235; relative --out, as the workflow passes it): every graph keeps the scanner\'s sanitized diagnostics, and nothing lands in what was scanned', async () => {
     const dir = tempDir('assess-relative');
     const candidate = join(dir, 'candidate');
     cpSync(w.candidate.dir, candidate, { recursive: true });
     const scannerRoot = join(w.fixture.dir, 'dependency-audit/scanner');
     const before = { candidate: artifactDigest(candidate), tooling: walkTooling(t.out).treeDigest, scanner: walkTooling(scannerRoot).treeDigest };
-    const r = await cli([
-      'assess', '--candidate', 'candidate', '--tooling', t.out, '--tooling-facts', t.facts,
-      '--certification', w.certificationPath, '--out', 'assessment', '--run-id', '9200', '--run-attempt', '1', '--now', iso(Date.now()),
-    ], { root: w.fixture.dir, env: w.npm.env(), cwd: dir });
+    const work = tempDir('assess-relative-state');
+    const inputs = ['--candidate', 'candidate', '--tooling', t.out, '--tooling-facts', t.facts, '--certification', w.certificationPath, '--out', 'assessment', '--state', join(work, 'state.json')];
+    const scan = await cli(['assess-scan', ...inputs, '--requests', join(work, 'requests.json'), '--now', iso(Date.now())], { root: w.fixture.dir, env: w.npm.env(), cwd: dir });
+    assert.equal(scan.status, 0, scan.stderr);
+    const r = await cli(['assess', ...inputs, '--run-id', '9200', '--run-attempt', '1'], { root: w.fixture.dir, env: w.npm.env(), cwd: dir });
     assert.equal(r.status, 0, r.stderr);
     const inspected = inspectAssessment(readFilesUnder(join(dir, 'assessment')).files);
     assert.deepEqual(inspected.problems, [], JSON.stringify(inspected.problems));

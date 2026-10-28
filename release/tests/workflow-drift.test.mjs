@@ -46,6 +46,10 @@ function stepsOf(workflow) {
 }
 const byName = (workflow, job, name) => workflow.jobs[job].steps.find((s) => s.name === name);
 const actionOf = (uses) => String(uses).split('@')[0];
+const SCAN_STEP = 'Scan the candidate\'s dependencies now';
+const DATES_STEP = 'Ask GitHub when the undated inherited advisories became reportable';
+/** Every `${{ … }}` expression a step's environment or inputs name. */
+const expressionsOf = (step) => JSON.stringify([step.env ?? {}, step.with ?? {}]).match(/\$\{\{[^}]*\}\}/g) ?? [];
 
 describe('publish.yml, statically, against release/policy.json', () => {
   it('CONTRACT: it runs only on a completed Certify on main, or a manual dispatch — never on a pull request or a push', () => {
@@ -176,19 +180,32 @@ describe('publish.yml, statically, against release/policy.json', () => {
   it('CONTRACT (B2.2): the gate prepares and assesses with the TRUSTED CLI, retains both as this run\'s artifacts, and hands their ids to decide', () => {
     const gate = PUBLISH.jobs.gate;
     const prepare = byName(PUBLISH, 'gate', 'Prepare the publisher toolchain');
+    const scan = byName(PUBLISH, 'gate', SCAN_STEP);
+    const dates = byName(PUBLISH, 'gate', DATES_STEP);
     const assess = byName(PUBLISH, 'gate', 'Assess the candidate\'s dependencies now');
     const decide = byName(PUBLISH, 'gate', 'Decide');
     const order = (name) => gate.steps.findIndex((s) => s.name === name);
     assert.ok(order('Download the candidate') < order('Prepare the publisher toolchain'));
-    assert.ok(order('Prepare the publisher toolchain') < order('Assess the candidate\'s dependencies now'));
+    assert.ok(order('Prepare the publisher toolchain') < order(SCAN_STEP));
+    assert.ok(order(SCAN_STEP) < order(DATES_STEP));
+    assert.ok(order(DATES_STEP) < order('Assess the candidate\'s dependencies now'));
+    assert.ok(order('Assess the candidate\'s dependencies now') < order('Retain the fresh assessment'));
     assert.ok(order('Retain the fresh assessment') < order('Decide'));
     assert.match(prepare.run, /node release\/cli\.mjs prepare-publisher --out tooling --facts tooling\.json/);
-    assert.match(assess.run, /node release\/cli\.mjs assess[\s\S]*--candidate candidate[\s\S]*--tooling tooling[\s\S]*--out assessment[\s\S]*--now "\$now"/);
-    assert.match(assess.run, /now="\$\(date -u \+%Y-%m-%dT%H:%M:%SZ\)"/, 'the trusted workflow supplies the collection start');
-    // A failure in either is DATA the decision refuses by name, never a skipped check.
+    assert.match(scan.run, /node release\/cli\.mjs assess-scan[\s\S]*--candidate candidate[\s\S]*--tooling tooling[\s\S]*--out assessment[\s\S]*--state assessment-scan\.json[\s\S]*--requests advisory-requests\.json[\s\S]*--now "\$now"/);
+    assert.match(scan.run, /now="\$\(date -u \+%Y-%m-%dT%H:%M:%SZ\)"/, 'the trusted workflow supplies the collection start');
+    assert.match(dates.run, /node release\/cli\.mjs advisory-dates[\s\S]*--requests advisory-requests\.json[\s\S]*--out advisory-answers\.json/);
+    assert.match(assess.run, /node release\/cli\.mjs assess[\s\S]*--candidate candidate[\s\S]*--tooling tooling[\s\S]*--out assessment[\s\S]*--state assessment-scan\.json[\s\S]*--answers advisory-answers\.json/);
+    // A failure in any of them is DATA the decision refuses by name, never a skipped check.
     assert.equal(prepare['continue-on-error'], true);
+    assert.equal(scan['continue-on-error'], true);
+    assert.equal(dates['continue-on-error'], true);
     assert.equal(assess['continue-on-error'], true);
     assert.equal(prepare.if, "steps.download.outcome == 'success'");
+    assert.equal(scan.if, "steps.prepare.outcome == 'success'");
+    assert.equal(dates.if, "steps.scan.outcome == 'success'");
+    // Assess runs whenever there was a toolchain to scan: a scan or a dates step that failed
+    // leaves its file absent, which assess records as NOT PERFORMED or undated — a refusal.
     assert.equal(assess.if, "steps.prepare.outcome == 'success'");
     // No package manager is invoked by the WORKFLOW in the gate: the CLI runs the pinned
     // scanner's npm with scripts disabled, and nothing else installs.
@@ -212,6 +229,26 @@ describe('publish.yml, statically, against release/policy.json', () => {
     assert.equal(decide.env.ASSESSMENT_DIGEST, '${{ steps.retain_assessment.outputs.artifact-digest }}');
     assert.equal(decide.env.RUN_ID, '${{ github.run_id }}');
     assert.equal(decide.env.RUN_ATTEMPT, '${{ github.run_attempt }}');
+  });
+
+  it('CONTRACT (A-2 follow-up): the job token reaches ONLY the step that asks GitHub for dates — never the scanner, never the decision', () => {
+    const scan = byName(PUBLISH, 'gate', SCAN_STEP);
+    const dates = byName(PUBLISH, 'gate', DATES_STEP);
+    const assess = byName(PUBLISH, 'gate', 'Assess the candidate\'s dependencies now');
+    // The scan runs the pinned npm — third-party code — and names no credential at all.
+    assert.equal(scan.env, undefined, 'the scanning step has an environment');
+    assert.deepEqual(expressionsOf(scan), []);
+    // The assess step runs no scanner but still holds no token: it reads files only.
+    assert.deepEqual(Object.keys(assess.env).sort(), ['RUN_ATTEMPT', 'RUN_ID']);
+    assert.ok(!expressionsOf(assess).some((e) => /token|secret/i.test(e)), 'the assess step names a credential');
+    // The dates step holds the job's read-only token and nothing else, and its script is
+    // exactly one command of THIS checkout's trusted CLI: no scanner, no package manager,
+    // no candidate path executed.
+    assert.deepEqual(dates.env, { GH_TOKEN: '${{ github.token }}' });
+    assert.equal(dates.uses, undefined);
+    const commands = dates.run.split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#') && l !== 'set -euo pipefail');
+    assert.equal(commands.join(' '), 'node release/cli.mjs advisory-dates \\ --requests advisory-requests.json \\ --out advisory-answers.json > advisory-dates-outcome.json');
+    assert.ok(!/candidate\/|tooling\//.test(dates.run), 'the dates step names a candidate or toolchain path');
   });
 
   it('CONTRACT: publication is gated on the variable the policy names, and on nothing a candidate controls', () => {
