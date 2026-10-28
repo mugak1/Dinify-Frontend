@@ -41,11 +41,16 @@
             [cdkDragDisabled]="!reorderMode"
             class="group p-3.5 rounded-2xl border transition-all cursor-pointer"
              [ngClass]="{
-               'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20': vm.selectedId === section.id,
-               'border-neutral-200/80 bg-card hover:border-primary/40 hover:bg-muted/40': vm.selectedId !== section.id,
+               'relative border-neutral-200/80 bg-secondary': vm.selectedId === section.id,
+               'border-neutral-200/80 bg-card hover:border-neutral-300 hover:bg-muted/40': vm.selectedId !== section.id,
                'opacity-50 grayscale': !section.available
              }"
             (click)="onSelect(section.id)">
+            <!-- "You are here": the sidebar's 3px brand-red marker, the one red on the card. -->
+            @if (vm.selectedId === section.id) {
+              <span aria-hidden="true"
+                class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-primary"></span>
+            }
             <!-- Drag handle -->
             @if (reorderMode) {
               <div
@@ -72,8 +77,8 @@
                     [class.bg-muted-foreground]="!isSectionActive(section)"></span>
                   </div>
                 }
-                <p class="text-sm font-semibold text-red-600">
-                  {{ section.item_count || 0 }} Item{{ section.item_count === 1 ? '' : 's' }}
+                <p class="text-sm text-muted-foreground">
+                  {{ section.item_count || 0 }} item{{ section.item_count === 1 ? '' : 's' }}
                 </p>
               </div>
               <div class="flex items-center gap-1 shrink-0" (click)="$event.stopPropagation()">
