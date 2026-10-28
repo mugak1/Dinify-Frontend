@@ -1352,6 +1352,79 @@
         "commit": "4eb249f633788107a555bd25c40f965056a468c2",
         "_note": "A public read of /release.txt returned it, no-store, at 2026-10-28T16:37:22Z. Deploy Admin run 40722674704 promoted it (conclusion read through the API, logs not read)."
       }
+    },
+    {
+      "id": "2026-10-28-pilot-20",
+      "_note": "Admin 52643af (the #55 merge), reviewed with #53 (cf60dec): a Dependabot bump of anthropics/claude-code-action to v1.0.262 in the two Claude workflows, then @angular/build 21.2.29 lock-only (undici 7.30.1), the scanner undici exceptions and the scanner's withheld file-command variables. deploy.yml is unchanged (blob 0f70ddf); deploy is still the only id-token holder.",
+      "approved": {
+        "admin": "52643afa6b7979f6e269f25025a339ea95e98f81",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "52643afa6b7979f6e269f25025a339ea95e98f81",
+          "receiptDigest": "sha256:8606297efbefb83fa58b443aeb1be252bd2528c6acf15a910b978ef1521d0eb5",
+          "tree": "aa3fedcacaea9b648127ad1e2f0c155d553899a6",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "0f70ddfa78d3832035fec8decd5c166ccd7ce9ac"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "source-protection-recorded"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "2ef7b1c659bc25bb332da707364862296944dc42",
+          "tree": "aa3fedcacaea9b648127ad1e2f0c155d553899a6",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        },
+        {
+          "commit": "cf60decb0937bc3b2f53643b4e1a33f8055827df",
+          "_note": "The #53 merge, deployed by Deploy Admin run 40747456086; observed by no readiness run."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "52643afa6b7979f6e269f25025a339ea95e98f81",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:5652e3964ba16424d8041125a716814b523c5bfda85f36ffdc49efc1a9d11686",
+          "evidence": "recorded",
+          "runs": [
+            40752331563
+          ],
+          "_note": "Job 123042037841, on ada57f9. The digest is the one the readiness record printed in the job log states; the run's gate artifact (12843608940) could not be downloaded from the environment that prepared this refresh. Its fresh assessment passed with approved exceptions."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "52643afa6b7979f6e269f25025a339ea95e98f81",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [],
+          "decisionDigest": "sha256:01536d3a916fdbb6bdc3b7350301d6ee68709510b484dc2f80f883a10e675972",
+          "evidence": "constructed",
+          "_note": "The four-reason wait. It names no Admin commit, so its digest is pilot-19's, which readiness run 40739197444 (on 88e9eff, job 122995855666) recorded under pilot-19; no run has recorded it under pilot-20."
+        }
+      ],
+      "adminServingObserved": {
+        "commit": "52643afa6b7979f6e269f25025a339ea95e98f81",
+        "_note": "A public read of /release.txt returned it, no-store, at 2026-10-28T19:15:43Z, and readiness run 40752331563 read it serving at 19:13Z. Deploy Admin run 40752022361 promoted it (conclusion read through the API, logs not read)."
+      }
     }
   ]
 }
