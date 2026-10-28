@@ -35,6 +35,52 @@
         "date": "2026-10-24"
       },
       "expires": "2026-11-30"
+    },
+    {
+      "id": "scanner-undici-GHSA-2m5v-pch6-74hx",
+      "kind": "exception",
+      "advisory": "GHSA-2m5v-pch6-74hx",
+      "aliases": [
+        "npm:1243476"
+      ],
+      "package": "undici",
+      "version": "6.29.0",
+      "paths": [
+        "scanner:node_modules/npm/node_modules/undici"
+      ],
+      "scope": "tooling",
+      "applicability": "undici 6.29.0 is bundled inside the pinned scanner, npm 11.21.1, which is installed from dependency-audit/scanner with scripts disabled and run only as npm audit. Its only requirer in the bundle is node_modules/node-gyp/lib/download.js (node-gyp 12.4.0, header downloads for native builds); npm's registry requests go through npm-registry-fetch and make-fetch-happen. The advisory's mechanism is TLS options given to an undici Agent being dropped, so certificate validation does not apply as configured; it needs undici to be loaded and to open a TLS connection. Measured 2026-10-28 on Node 24.22.1, the major CI uses, with a preload that records every module file resolved through Module._resolveFilename and module.registerHooks: the scanner's exact audit argv, cwd and scrubbed environment, against the application graph and against its own graph, resolved no file under node_modules/undici and returned complete reports. node-gyp's lib/download.js was not resolved; node-gyp/bin/node-gyp.js was, only through require.resolve for the node-gyp config default, and none of the modules it requires was resolved, so none of its code ran. Positive controls under the same probe (requiring node-gyp/lib/download.js; requiring undici from the bundle, importing it, and requiring it in a worker thread and in a child process) each recorded 95 undici files. A scanner that crashed would leave the audit incomplete, which fails closed.",
+      "reason": "As of 2026-10-28 no npm release bundles a fixed undici: 11.21.1 (the latest 11.x) and 12.2.1 (the latest release, which supports Node 24), both published 2026-10-15, bundle 6.29.0, and the fix is 6.29.1. A bundled dependency cannot be replaced by the lockfile or an override. The audit dates GHSA-2m5v-pch6-74hx reportable from 2026-10-27, so the inherited finding is deferred only until 2026-11-03; from 00:00 UTC on that day, without a disposition, the scanner graph blocks and no candidate is certified. The accepted residual risk is that the scanner loads undici on a path the measured runs did not take. Remove this record in the same change that moves the scanner to an npm that bundles undici 6.29.1 or later; it expires at 00:00 UTC on 2026-11-30, with this repository's other scanner undici records and Admin's matching records, and is not extended automatically.",
+      "owner": "mugak1",
+      "approval": {
+        "by": "mugak1",
+        "reference": "https://github.com/mugak1/Dinify-Frontend/pull/784",
+        "date": "2026-10-28"
+      },
+      "expires": "2026-11-30"
+    },
+    {
+      "id": "scanner-undici-GHSA-qrxm-fqhp-jwvm",
+      "kind": "exception",
+      "advisory": "GHSA-qrxm-fqhp-jwvm",
+      "aliases": [
+        "npm:1243479"
+      ],
+      "package": "undici",
+      "version": "6.29.0",
+      "paths": [
+        "scanner:node_modules/npm/node_modules/undici"
+      ],
+      "scope": "tooling",
+      "applicability": "undici 6.29.0 is bundled inside the pinned scanner, npm 11.21.1, which is installed from dependency-audit/scanner with scripts disabled and run only as npm audit. Its only requirer in the bundle is node_modules/node-gyp/lib/download.js (node-gyp 12.4.0, header downloads for native builds); npm's registry requests go through npm-registry-fetch and make-fetch-happen. The advisory's mechanism is a denial of service when a server renegotiates a TLS 1.2 connection with a changed certificate; it needs undici to be loaded and to hold a TLS connection. Measured 2026-10-28 on Node 24.22.1, the major CI uses, with a preload that records every module file resolved through Module._resolveFilename and module.registerHooks: the scanner's exact audit argv, cwd and scrubbed environment, against the application graph and against its own graph, resolved no file under node_modules/undici and returned complete reports. node-gyp's lib/download.js was not resolved; node-gyp/bin/node-gyp.js was, only through require.resolve for the node-gyp config default, and none of the modules it requires was resolved, so none of its code ran. Positive controls under the same probe (requiring node-gyp/lib/download.js; requiring undici from the bundle, importing it, and requiring it in a worker thread and in a child process) each recorded 95 undici files. A scanner that crashed would leave the audit incomplete, which fails closed.",
+      "reason": "As of 2026-10-28 no npm release bundles a fixed undici: 11.21.1 (the latest 11.x) and 12.2.1 (the latest release, which supports Node 24), both published 2026-10-15, bundle 6.29.0, and the fix is 6.29.1. A bundled dependency cannot be replaced by the lockfile or an override. The audit dates GHSA-qrxm-fqhp-jwvm reportable from 2026-10-27, so the inherited finding is deferred only until 2026-11-03; from 00:00 UTC on that day, without a disposition, the scanner graph blocks and no candidate is certified. The accepted residual risk is that the scanner loads undici on a path the measured runs did not take. Remove this record in the same change that moves the scanner to an npm that bundles undici 6.29.1 or later; it expires at 00:00 UTC on 2026-11-30, with this repository's other scanner undici records and Admin's matching records, and is not extended automatically.",
+      "owner": "mugak1",
+      "approval": {
+        "by": "mugak1",
+        "reference": "https://github.com/mugak1/Dinify-Frontend/pull/784",
+        "date": "2026-10-28"
+      },
+      "expires": "2026-11-30"
     }
   ]
 }

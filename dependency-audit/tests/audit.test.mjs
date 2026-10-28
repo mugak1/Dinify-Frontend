@@ -365,12 +365,18 @@ describe('the committed policy of THIS repository', () => {
   //
   // The set was EMPTY from 2026-10-23 (the three scanner records were remediated by npm
   // 11.21.1, the http-cache-semantics record went stale under it, and GitHub withdrew the
-  // braces advisory). Since 2026-10-24 it holds ONE record: the scanner-bundled undici 6.29.0
-  // for GHSA-xjj6-f33q-929c, which no npm release bundles fixed (Admin carries the same record,
-  // mugak1/Dinify-Admin#48).
-  const CURRENT_ID = 'scanner-undici-GHSA-xjj6-f33q-929c';
-  const GRAPH = { [CURRENT_ID]: 'scanner' };
-  it('CONTRACT: the only approved record is the scanner-bundled undici GHSA-xjj6-f33q-929c tooling exception, well-formed as approved', () => {
+  // braces advisory). On 2026-10-24 it gained the scanner-bundled undici 6.29.0 for
+  // GHSA-xjj6-f33q-929c (#761), and on 2026-10-28 the same undici for GHSA-2m5v-pch6-74hx and
+  // GHSA-qrxm-fqhp-jwvm (#784), whose deferral ends at 00:00 UTC on 2026-11-03. No npm release
+  // bundles undici 6.29.1, the fix for all three. Admin carries the same three scanner records.
+  const APPROVED = {
+    'scanner-undici-GHSA-xjj6-f33q-929c': { advisory: 'GHSA-xjj6-f33q-929c', alias: 'npm:1243114', pull: 761, date: '2026-10-24' },
+    'scanner-undici-GHSA-2m5v-pch6-74hx': { advisory: 'GHSA-2m5v-pch6-74hx', alias: 'npm:1243476', pull: 784, date: '2026-10-28' },
+    'scanner-undici-GHSA-qrxm-fqhp-jwvm': { advisory: 'GHSA-qrxm-fqhp-jwvm', alias: 'npm:1243479', pull: 784, date: '2026-10-28' },
+  };
+  const IDS = Object.keys(APPROVED);
+  const GRAPH = Object.fromEntries(IDS.map((id) => [id, 'scanner']));
+  it('CONTRACT: the approved records are exactly the three scanner-bundled undici tooling exceptions, well-formed as approved', () => {
     assert.deepEqual(policy.records.map((r) => r.id), Object.keys(GRAPH));
     for (const record of policy.records) {
       assert.deepEqual(validateRecord(record, parseDate(record.approval.date)), [], record.id);
@@ -380,35 +386,38 @@ describe('the committed policy of THIS repository', () => {
     }
   });
 
-  it('CONTRACT: the undici record is exactly its subject, approved by mugak1 in this repository, and expires 2026-11-30', () => {
-    const record = policy.records.find((r) => r.id === CURRENT_ID);
-    assert.equal(record.advisory, 'GHSA-xjj6-f33q-929c');
-    assert.deepEqual(record.aliases, ['npm:1243114']);
-    assert.equal(record.package, 'undici');
-    assert.equal(record.version, '6.29.0');
-    assert.deepEqual(record.paths, ['scanner:node_modules/npm/node_modules/undici']);
-    assert.equal(record.owner, 'mugak1');
-    assert.equal(record.approval.by, 'mugak1');
-    assert.match(record.approval.reference, /^https:\/\/github\.com\/mugak1\/Dinify-Frontend\/pull\/[0-9]+$/);
-    assert.equal(record.approval.date, '2026-10-24');
-    assert.equal(record.expires, '2026-11-30');
+  it('CONTRACT: each undici record is exactly its subject, approved by mugak1 in this repository, and expires 2026-11-30', () => {
+    for (const [id, want] of Object.entries(APPROVED)) {
+      const record = policy.records.find((r) => r.id === id);
+      assert.equal(record.advisory, want.advisory, id);
+      assert.deepEqual(record.aliases, [want.alias], id);
+      assert.equal(record.package, 'undici', id);
+      assert.equal(record.version, '6.29.0', id);
+      assert.deepEqual(record.paths, ['scanner:node_modules/npm/node_modules/undici'], id);
+      assert.equal(record.owner, 'mugak1', id);
+      assert.deepEqual(record.approval, { by: 'mugak1', reference: `https://github.com/mugak1/Dinify-Frontend/pull/${want.pull}`, date: want.date }, id);
+      assert.equal(record.expires, '2026-11-30', id);
+    }
   });
 
   const finding = (advisory, alias, pkg, version, path, severity = 'high', scope = 'tooling') => ({ advisory, aliases: [alias], package: pkg, version, path, scope, severity });
-  // The two scanner undici findings exactly as the pinned scanner reported them on 2026-10-24:
-  // the high one the record covers, and a MODERATE one on the same node that it must not.
-  const CURRENT = finding('GHSA-xjj6-f33q-929c', 'npm:1243114', 'undici', '6.29.0', 'scanner:node_modules/npm/node_modules/undici');
+  // The scanner undici findings exactly as the pinned scanner reports them (measured
+  // 2026-10-24 and 2026-10-28): the three high ones the records cover, and a MODERATE one on
+  // the same node that none of them may.
+  const SUBJECTS = Object.fromEntries(IDS.map((id) => [id, finding(APPROVED[id].advisory, APPROVED[id].alias, 'undici', '6.29.0', 'scanner:node_modules/npm/node_modules/undici')]));
   const NEIGHBOUR = finding('GHSA-4qv8-2p9j-2685', 'npm:1243079', 'undici', '6.29.0', 'scanner:node_modules/npm/node_modules/undici', 'moderate');
-  const current = () => ({ ...CURRENT, aliases: [...CURRENT.aliases] });
+  const clone = (f) => ({ ...f, aliases: [...f.aliases] });
+  const subjects = () => Object.values(SUBJECTS).map(clone);
   const IN_DATE = '2026-11-29T23:59:59Z';
   const decide = (findings, { now = IN_DATE, records = policy.records, incomplete = [] } = {}) => evaluate({ incomplete, findings, records, now });
   const status = (result, id) => result.records.find((r) => r.id === id);
+  const at = (result, f) => result.findings.find((x) => x.advisory === f.advisory && x.path === f.path);
 
   // The five subjects the committed records used to cover, driven through the real evaluator
   // with findings shaped exactly as the pinned scanner reported them. If any of them is
   // reported again (an advisory reinstated or widened, or a scanner rolled back), nothing in
-  // the committed policy may quietly cover it: it has to block. The current subject is reported
-  // beside them so the committed record is in use rather than stale; the generic record rules
+  // the committed policy may quietly cover it: it has to block. The current subjects are reported
+  // beside them so the committed records are in use rather than stale; the generic record rules
   // are pinned by the conformance vectors and the core suite.
   describe('the five former subjects (records removed 2026-10-23) against the committed policy', () => {
     const FORMER = [
@@ -418,26 +427,27 @@ describe('the committed policy of THIS repository', () => {
       finding('GHSA-vfj7-8cjw-p6xm', 'npm:1240992', 'braces', '3.0.3', 'application:node_modules/braces'),
       finding('GHSA-ch52-4w7c-c8xp', 'npm:1240991', 'http-cache-semantics', '4.2.0', 'scanner:node_modules/npm/node_modules/http-cache-semantics'),
     ];
-    const former = () => FORMER.map((f) => ({ ...f, aliases: [...f.aliases] }));
+    const former = () => FORMER.map(clone);
 
-    it('CONTROL: with only the current subject reported the committed policy passes only with exceptions, and an incomplete scan still fails closed', () => {
-      const ok = decide([current()]);
+    it('CONTROL: with only the current subjects reported the committed policy passes only with exceptions, and an incomplete scan still fails closed', () => {
+      const ok = decide(subjects());
       assert.equal(ok.outcome, 'exceptions_only', JSON.stringify(ok.reasons));
       assert.equal(ok.exitCode, 0);
+      assert.equal(ok.counts.excepted, IDS.length);
       assert.equal(ok.counts.refusedRecords, 0);
-      const r = decide([current()], { incomplete: [{ code: 'scanner_timeout', detail: 'the scanner did not finish' }] });
+      const r = decide(subjects(), { incomplete: [{ code: 'scanner_timeout', detail: 'the scanner did not finish' }] });
       assert.equal(r.outcome, 'incomplete');
       assert.equal(r.exitCode, 2);
     });
 
     it('CONTRACT: every former subject, if reported again, is open and blocking: nothing committed covers it', () => {
-      const r = decide([...former(), current()]);
+      const r = decide([...former(), ...subjects()]);
       assert.equal(r.outcome, 'blocking');
       assert.equal(r.exitCode, 1);
-      assert.equal(r.counts.excepted, 1, 'only the current subject is excepted');
+      assert.equal(r.counts.excepted, IDS.length, 'only the current subjects are excepted');
       assert.equal(r.counts.refusedRecords, 0);
       for (const f of FORMER) {
-        const open = r.findings.find((x) => x.advisory === f.advisory && x.path === f.path);
+        const open = at(r, f);
         assert.equal(open.disposition, 'open', f.advisory);
         assert.equal(open.coveredBy, null, f.advisory);
       }
@@ -445,9 +455,9 @@ describe('the committed policy of THIS repository', () => {
 
     it('CONTRACT: the publisher toolchain\'s braces stays blocking, and no record can be written for it', () => {
       const publisher = finding('GHSA-vfj7-8cjw-p6xm', 'npm:1240992', 'braces', '3.0.3', 'publisher:node_modules/braces');
-      const r = decide([publisher, current()]);
+      const r = decide([publisher, ...subjects()]);
       assert.equal(r.outcome, 'blocking');
-      const open = r.findings.find((x) => x.path === publisher.path);
+      const open = at(r, publisher);
       assert.equal(open.disposition, 'open');
       assert.equal(open.coveredBy, null);
       // The record grammar admits application and scanner paths only.
@@ -461,70 +471,95 @@ describe('the committed policy of THIS repository', () => {
     });
   });
 
-  // The 2026-10-24 record, driven through the real evaluator against its exact subject. These
-  // pin what it covers and every refusal it must keep: a runtime finding, a moved path, another
-  // version, a missing or an extra alias, a bad approval reference, a vanished finding (stale)
-  // and the expiry.
-  describe('the 2026-10-24 exception (scanner undici GHSA-xjj6-f33q-929c) against its exact subject', () => {
-    const withCurrent = (change) => [{ ...current(), ...change }, { ...NEIGHBOUR }];
-    const refused = (r, label) => {
+  // The three undici records, driven through the real evaluator against their exact subjects.
+  // These pin what each covers and every refusal it must keep: another advisory on the same
+  // node, a runtime finding, a moved path, another version, a missing or an extra alias, a bad
+  // approval reference, a vanished finding (stale) and the expiry.
+  describe('the undici exceptions (scanner undici 6.29.0) against their exact subjects', () => {
+    const reported = (change = {}) => [...subjects().map((f) => (change[f.advisory] ? { ...f, ...change[f.advisory] } : f)), clone(NEIGHBOUR)];
+    const refused = (r, id, label) => {
       assert.equal(r.outcome, 'blocking', label);
-      assert.equal(status(r, CURRENT_ID).status, 'refused', label);
-      const f = r.findings.find((x) => x.advisory === CURRENT.advisory);
+      assert.equal(status(r, id).status, 'refused', label);
+      const f = r.findings.find((x) => x.advisory === SUBJECTS[id].advisory);
       if (f) assert.equal(f.disposition, 'open', `${label}: a refused record covers nothing`);
     };
 
-    it('CONTROL: it excepts exactly its subject, the moderate undici advisory on the same node still requires triage, and the result says it passes only with exceptions', () => {
-      const r = decide([current(), { ...NEIGHBOUR }]);
+    it('CONTROL: each excepts exactly its own subject, the moderate undici advisory on the same node still requires triage, and the result says it passes only with exceptions', () => {
+      const r = decide(reported());
       assert.equal(r.outcome, 'exceptions_only', JSON.stringify(r.reasons));
       assert.equal(r.exitCode, 0);
-      assert.equal(r.counts.excepted, 1);
+      assert.equal(r.counts.excepted, IDS.length);
       assert.equal(r.counts.triageRequired, 1);
       assert.equal(r.counts.refusedRecords, 0);
-      assert.equal(r.findings.find((x) => x.advisory === CURRENT.advisory).coveredBy, CURRENT_ID);
-      const neighbour = r.findings.find((x) => x.advisory === NEIGHBOUR.advisory);
+      for (const id of IDS) {
+        assert.equal(at(r, SUBJECTS[id]).coveredBy, id, id);
+        assert.equal(status(r, id).covers, 1, id);
+      }
+      const neighbour = at(r, NEIGHBOUR);
       assert.equal(neighbour.coveredBy, null);
       assert.equal(neighbour.disposition, 'open');
     });
 
+    it('CONTRACT: no record covers another advisory on the same node — each one withdrawn leaves its own subject open and blocking', () => {
+      for (const id of IDS) {
+        const r = decide(reported(), { records: policy.records.filter((x) => x.id !== id) });
+        assert.equal(r.outcome, 'blocking', id);
+        assert.equal(at(r, SUBJECTS[id]).disposition, 'open', id);
+        assert.equal(at(r, SUBJECTS[id]).coveredBy, null, id);
+        assert.equal(r.counts.excepted, IDS.length - 1, id);
+        for (const other of IDS.filter((x) => x !== id)) assert.equal(status(r, other).status, 'applied', `${id}: ${other} still covers its own subject`);
+      }
+    });
+
     it('CONTRACT: a RUNTIME finding on the same subject is not covered by the tooling record', () => {
-      const r = decide(withCurrent({ scope: 'runtime' }));
-      refused(r, 'runtime');
-      assert.ok(status(r, CURRENT_ID).problems.some((p) => /scope tooling does not match runtime/.test(p)));
+      for (const id of IDS) {
+        const r = decide(reported({ [SUBJECTS[id].advisory]: { scope: 'runtime' } }));
+        refused(r, id, `${id}: runtime`);
+        assert.ok(status(r, id).problems.some((p) => /scope tooling does not match runtime/.test(p)), id);
+      }
     });
 
     it('CONTRACT: a changed version, a moved path, a missing or extra alias, or a vanished finding refuses the record', () => {
-      const cases = {
-        version: decide(withCurrent({ version: '6.29.1' })),
-        path: decide(withCurrent({ path: 'scanner:node_modules/npm/node_modules/node-gyp/node_modules/undici' })),
-        'missing alias (the scanner reports none)': decide(withCurrent({ aliases: [] })),
-        'extra alias (the record claims one the scanner does not report)': decide([current(), { ...NEIGHBOUR }], {
-          records: policy.records.map((x) => (x.id === CURRENT_ID ? { ...x, aliases: [...x.aliases, 'npm:1243079'] } : x)),
-        }),
-        stale: decide([{ ...NEIGHBOUR }]),
-      };
-      for (const [label, r] of Object.entries(cases)) refused(r, label);
-      assert.ok(status(cases.stale, CURRENT_ID).problems.some((p) => /stale/.test(p)));
-      assert.ok(status(cases['extra alias (the record claims one the scanner does not report)'], CURRENT_ID).problems.some((p) => /not reported by the scanner/.test(p)));
+      for (const id of IDS) {
+        const advisory = SUBJECTS[id].advisory;
+        const cases = {
+          version: decide(reported({ [advisory]: { version: '6.29.1' } })),
+          path: decide(reported({ [advisory]: { path: 'scanner:node_modules/npm/node_modules/node-gyp/node_modules/undici' } })),
+          'missing alias (the scanner reports none)': decide(reported({ [advisory]: { aliases: [] } })),
+          'extra alias (the record claims one the scanner does not report)': decide(reported(), {
+            records: policy.records.map((x) => (x.id === id ? { ...x, aliases: [...x.aliases, NEIGHBOUR.aliases[0]] } : x)),
+          }),
+          stale: decide(reported().filter((f) => f.advisory !== advisory)),
+        };
+        for (const [label, r] of Object.entries(cases)) refused(r, id, `${id}: ${label}`);
+        assert.ok(status(cases.stale, id).problems.some((p) => /stale/.test(p)), id);
+        assert.ok(status(cases['extra alias (the record claims one the scanner does not report)'], id).problems.some((p) => /not reported by the scanner/.test(p)), id);
+      }
     });
 
     it('CONTRACT: malformed approval metadata refuses the record, and an incomplete scan fails closed whatever is excepted', () => {
-      for (const reference of ['not-a-review-link', 'https://github.com/someone-else/Dinify-Frontend/pull/1']) {
-        const records = policy.records.map((x) => (x.id === CURRENT_ID ? { ...x, approval: { ...x.approval, reference } } : x));
-        refused(decide([current(), { ...NEIGHBOUR }], { records }), reference);
+      for (const id of IDS) {
+        for (const reference of ['not-a-review-link', 'https://github.com/someone-else/Dinify-Frontend/pull/1']) {
+          const records = policy.records.map((x) => (x.id === id ? { ...x, approval: { ...x.approval, reference } } : x));
+          refused(decide(reported(), { records }), id, `${id}: ${reference}`);
+        }
       }
-      const r = decide([current(), { ...NEIGHBOUR }], { incomplete: [{ code: 'scanner_timeout', detail: 'the scanner did not finish' }] });
+      const r = decide(reported(), { incomplete: [{ code: 'scanner_timeout', detail: 'the scanner did not finish' }] });
       assert.equal(r.outcome, 'incomplete');
       assert.equal(r.exitCode, 2);
     });
 
-    it('CONTRACT: it expires at 00:00 UTC on 2026-11-30 — valid through the second before, refused from it', () => {
-      const before = decide([current(), { ...NEIGHBOUR }], { now: '2026-11-29T23:59:59Z' });
+    it('CONTRACT: all three expire at 00:00 UTC on 2026-11-30 — valid through the second before, refused from it', () => {
+      const before = decide(reported(), { now: '2026-11-29T23:59:59Z' });
       assert.equal(before.outcome, 'exceptions_only');
-      const at = decide([current(), { ...NEIGHBOUR }], { now: '2026-11-30T00:00:00Z' });
-      assert.equal(at.outcome, 'blocking');
-      assert.deepEqual(status(at, CURRENT_ID).problems, ['expired on 2026-11-30']);
-      assert.equal(at.findings.find((x) => x.advisory === CURRENT.advisory).disposition, 'open');
+      assert.equal(before.counts.excepted, IDS.length);
+      const lapsed = decide(reported(), { now: '2026-11-30T00:00:00Z' });
+      assert.equal(lapsed.outcome, 'blocking');
+      assert.equal(lapsed.counts.excepted, 0);
+      for (const id of IDS) {
+        assert.deepEqual(status(lapsed, id).problems, ['expired on 2026-11-30'], id);
+        assert.equal(at(lapsed, SUBJECTS[id]).disposition, 'open', id);
+      }
     });
   });
 });
