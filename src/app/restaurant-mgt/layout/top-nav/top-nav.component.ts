@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Output, EventEmitter, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Output, EventEmitter, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthenticationService } from '../../../_services/authentication.service';
 
@@ -18,6 +18,12 @@ export class TopNavComponent {
   @Output() menuClick = new EventEmitter<void>();
   @Output() logoutClick = new EventEmitter<void>();
   @Input() compact = false;
+  /** Render the menu button: the shell sets this only in the drawer regime (below 1024). */
+  @Input() showMenuButton = false;
+  /** The drawer the menu button controls is open (its aria-expanded). */
+  @Input() menuExpanded = false;
+
+  @ViewChild('menuButton') private menuButton?: ElementRef<HTMLButtonElement>;
 
   constructor(private auth: AuthenticationService) {}
 
@@ -29,6 +35,11 @@ export class TopNavComponent {
    * membership label (`rest_role.restaurant`), which is present immediately on
    * first paint before the detail request resolves.
    */
+  /** Return focus to the menu button (Esc closing the drawer). */
+  focusMenuButton(): void {
+    this.menuButton?.nativeElement.focus();
+  }
+
   get restaurantName(): string {
     return this.auth.currentRestaurant?.name || this.auth.currentRestaurantRole?.restaurant || '';
   }

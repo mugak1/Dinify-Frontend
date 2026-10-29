@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { SidebarComponent } from './sidebar.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { canAccess, firstAccessibleRoute, NO_MODULE_ROUTE } from '../../../_helpers/module-access';
 import { ModuleKey, PermissionsMap } from '../../../_models/app.models';
+import { ShellRegime } from '../shell-layout';
 
 describe('SidebarComponent', () => {
   // Back the sidebar with an auth stub whose RBAC answers come from the real
@@ -13,7 +14,7 @@ describe('SidebarComponent', () => {
       canAccess: (k: ModuleKey) => canAccess(map, k),
       firstAccessibleRoute: () => firstAccessibleRoute(map, roles),
     } as unknown as AuthenticationService;
-    return new SidebarComponent(auth, document);
+    return new SidebarComponent(auth);
   };
 
   const ALL_FALSE: PermissionsMap = {
@@ -59,7 +60,7 @@ describe('SidebarComponent', () => {
 });
 
 describe('SidebarComponent (rendered) — Kitchen opens in a new tab', () => {
-  const render = async (isOpen: boolean) => {
+  const render = async (expanded: boolean, regime: ShellRegime = 'rail-push') => {
     const auth = {
       canAccess: () => true,
       firstAccessibleRoute: () => '/dashboard',
@@ -71,7 +72,8 @@ describe('SidebarComponent (rendered) — Kitchen opens in a new tab', () => {
       providers: [provideRouter([]), { provide: AuthenticationService, useValue: auth }],
     }).compileComponents();
     const fixture = TestBed.createComponent(SidebarComponent);
-    fixture.componentInstance.isOpen = isOpen;
+    fixture.componentInstance.expanded = expanded;
+    fixture.componentInstance.regime = regime;
     fixture.detectChanges();
     const links = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('nav a'),
@@ -79,7 +81,6 @@ describe('SidebarComponent (rendered) — Kitchen opens in a new tab', () => {
     return { fixture, links, byLabel: (l: string) => links.find(a => a.textContent!.includes(l))! };
   };
 
-  afterEach(() => document.body.classList.remove('dn-drawer-open'));
 
   it('gives the Kitchen link target="_blank" with rel="noopener", still pointing at /kitchen', async () => {
     const { byLabel } = await render(true);
@@ -109,5 +110,95 @@ describe('SidebarComponent (rendered) — Kitchen opens in a new tab', () => {
     const kitchen = collapsed.byLabel('Kitchen');
     expect(kitchen.querySelector('[data-testid="nav-new-tab-icon"]')).toBeNull();
     expect(kitchen.getAttribute('target')).toBe('_blank');
+  });
+});
+
+describe('SidebarComponent (rendered) — regimes, inert and the collapsed rail', () => {
+  const render = async (regime: ShellRegime, expanded: boolean, url = '/dashboard') => {
+    const auth = {
+      canAccess: () => true,
+      firstAccessibleRoute: () => '/dashboard',
+      userValue: null,
+      currentRestaurantRole: null,
+    } as unknown as AuthenticationService;
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [SidebarComponent],
+      providers: [
+        provideRouter([{ path: '**', children: [] }]),
+        { provide: AuthenticationService, useValue: auth },
+      ],
+    }).compileComponents();
+    const router = TestBed.inject(Router);
+    await router.navigateByUrl(url);
+    const fixture = TestBed.createComponent(SidebarComponent);
+    fixture.componentInstance.regime = regime;
+    fixture.componentInstance.expanded = expanded;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    return {
+      fixture,
+      panel: el.querySelector<HTMLElement>('[data-testid="sidebar-panel"]')!,
+      toggle: el.querySelector<HTMLButtonElement>('[data-testid="sidebar-toggle"]'),
+      el,
+    };
+  };
+
+  it('a closed drawer is inert and off-screen; an open one is not', async () => {
+    const closed = await render('drawer', false);
+    expect(closed.panel.hasAttribute('inert')).toBeTrue();
+    expect(closed.panel.classList).toContain('-translate-x-full');
+    expect(closed.panel.classList).toContain('fixed');
+    const open = await render('drawer', true);
+    expect(open.panel.hasAttribute('inert')).toBeFalse();
+    expect(open.panel.classList).not.toContain('-translate-x-full');
+  });
+
+  it('is inert ONLY in the drawer regime: never the collapsed or expanded rail', async () => {
+    for (const regime of ['rail-overlay', 'rail-push'] as ShellRegime[]) {
+      for (const expanded of [false, true]) {
+        const { panel } = await render(regime, expanded);
+        expect(panel.hasAttribute('inert')).withContext(`${regime} expanded=${expanded}`).toBeFalse();
+        expect(panel.classList).withContext(regime).toContain('absolute');
+        expect(panel.classList).not.toContain('-translate-x-full');
+      }
+    }
+  });
+
+  it('the rail toggle exists only from 1024, and controls the panel', async () => {
+    expect((await render('drawer', true)).toggle).toBeNull();
+    for (const regime of ['rail-overlay', 'rail-push'] as ShellRegime[]) {
+      const { toggle } = await render(regime, false);
+      expect(toggle).withContext(regime).not.toBeNull();
+      expect(toggle!.getAttribute('aria-controls')).toBe('portal-sidebar');
+      expect(toggle!.getAttribute('aria-expanded')).toBe('false');
+      expect(toggle!.getBoundingClientRect().width).withContext('44px touch target').toBe(44);
+    }
+    const open = await render('rail-overlay', true);
+    expect(open.toggle!.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('panel width: the drawer is always 220, the rail 64 until expanded', async () => {
+    expect((await render('drawer', false)).panel.style.width).toBe('220px');
+    expect((await render('rail-overlay', false)).panel.style.width).toBe('64px');
+    expect((await render('rail-overlay', true)).panel.style.width).toBe('220px');
+    expect((await render('rail-push', false)).panel.style.width).toBe('64px');
+  });
+
+  it('keeps the "you are here" marker on the COLLAPSED rail too', async () => {
+    const collapsed = await render('rail-push', false, '/menu');
+    expect(collapsed.el.querySelectorAll('[data-testid="nav-active-marker"]').length).toBe(1);
+    const expanded = await render('rail-push', true, '/menu');
+    expect(expanded.el.querySelectorAll('[data-testid="nav-active-marker"]').length).toBe(1);
+  });
+
+  it('focusToggle() moves focus to the rail toggle', async () => {
+    const { fixture, toggle } = await render('rail-overlay', true);
+    document.body.appendChild(fixture.nativeElement);
+    fixture.componentInstance.focusToggle();
+    expect(document.activeElement).toBe(toggle);
+    fixture.nativeElement.remove();
   });
 });

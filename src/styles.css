@@ -173,18 +173,18 @@ app-restaurant-mgt app-animated-number {
   font-family: "Gabarito Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
 }
 
-/* Lock background scroll while the mobile nav drawer is open (<xl). The sidebar
-   toggles `body.dn-drawer-open` from its open state; scoping the lock to <xl
-   here means desktop — where that same state just expands the rail — is never
-   affected, with no JS viewport check. The descendant `main` rule outranks
-   Tailwind's `.overflow-y-auto`, so the real scroll container is locked too. */
-@media (max-width: 1279.98px) {
-  body.dn-drawer-open {
-    overflow: hidden;
-  }
-  body.dn-drawer-open app-restaurant-mgt main {
-    overflow: hidden;
-  }
+/* Lock background scroll while a portal overlay is open: the nav drawer below
+   1024px, or the rail's overlay expansion at 1024–1279px. The shell
+   (restaurant-mgt.component.ts) sets `body.dn-drawer-open` ONLY while one of those
+   is open — it owns the width regime (layout/shell-layout.ts), so this rule carries
+   no media query, and the expanded rail at 1280+ (which pushes, not overlays) is
+   never locked. The descendant `main` rule outranks Tailwind's `.overflow-y-auto`,
+   so the real scroll container is locked too. */
+body.dn-drawer-open {
+  overflow: hidden;
+}
+body.dn-drawer-open app-restaurant-mgt main {
+  overflow: hidden;
 }
 
 .ng-submitted input.ng-invalid,.ng-submitted input.ng-invalid .error-msg,
