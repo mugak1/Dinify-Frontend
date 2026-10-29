@@ -37,7 +37,7 @@ describe('RestaurantMgtComponent — cross-tab guard', () => {
     order = [];
     auth = {
       retire: jasmine.createSpy('retire').and.callFake(() => order.push('retire')),
-      retireAndReload: jasmine.createSpy('retireAndReload'),
+      retireAndReload: jasmine.createSpy('retireAndReload').and.returnValue(Promise.resolve()),
       setCurrentRestaurant: () => {},
       get currentRestaurantRole() {
         try { return JSON.parse(localStorage.getItem('rest_role') ?? 'null'); } catch { return null; }

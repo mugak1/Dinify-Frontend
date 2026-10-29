@@ -40,7 +40,8 @@ describe('RestaurantSwitchService', () => {
     auth.userValue = { token: 't', profile: profile('user-1', [memberA, memberB]) };
     auth.currentRestaurantRole = memberA;
     auth.captureRequestOwner.and.returnValue(null);
-    auth.switchRestaurantAndReload.and.returnValue('switched');
+    auth.switchRestaurantAndReload.and.returnValue(Promise.resolve('switched'));
+    auth.retireAndReload.and.returnValue(Promise.resolve());
     toast = jasmine.createSpyObj('ToastService', ['success', 'error', 'warning', 'info', 'clear', 'dismiss']);
     router = { url: '/menu/sections?s=1' };
 
@@ -161,11 +162,12 @@ describe('RestaurantSwitchService', () => {
       expect(svc.error()).not.toBeNull();
     });
 
-    it('when the principal changed underneath, it reloads into what is stored and writes nothing', () => {
-      auth.switchRestaurantAndReload.and.returnValue('principal-changed');
+    it('when the principal changed underneath, it reloads into what is stored and writes nothing', async () => {
+      auth.switchRestaurantAndReload.and.returnValue(Promise.resolve('principal-changed'));
       auth.currentRestaurantRole = memberA;
       svc.switchTo('rest-b', 'Cafe Javas');
       httpMock.expectOne(PROFILE_URL).flush({ status: 200, data: { profile: profile('user-1', [memberA, memberB]) } });
+      await Promise.resolve();
       expect(auth.retireAndReload).toHaveBeenCalledOnceWith('/menu');
     });
   });

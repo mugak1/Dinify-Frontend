@@ -86,13 +86,14 @@ export class RestaurantSwitchService {
             this.fail(`You no longer have access to ${name}. Nothing was changed.`);
             return;
           }
-          const outcome = this.auth.switchRestaurantAndReload(
-            profile, membership, landingPathFor(this.router.url, membership));
-          if (outcome === 'principal-changed') {
-            // Someone else is signed in to this browser now: write nothing, and
-            // reload into whatever is stored.
-            this.auth.retireAndReload(landingPathFor(this.router.url, this.auth.currentRestaurantRole));
-          }
+          this.auth.switchRestaurantAndReload(profile, membership, landingPathFor(this.router.url, membership))
+            .then((outcome) => {
+              if (outcome === 'principal-changed') {
+                // Someone else is signed in to this browser now: write nothing,
+                // and reload into whatever is stored.
+                void this.auth.retireAndReload(landingPathFor(this.router.url, this.auth.currentRestaurantRole));
+              }
+            });
         },
         error: () => this.fail("Couldn't switch restaurants right now. Check your connection and try again."),
       });

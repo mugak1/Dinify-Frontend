@@ -475,16 +475,24 @@ this.userSubject.next(u as any)
    *
    * Staff requests stop FIRST (`retire`), before anything is written, so nothing
    * this document sends can carry the new restaurant's id with the old one's data.
+   * A renewal already in flight is then awaited (see `whenRenewalSettled`), so the
+   * stored session read afterwards carries the rotated tokens.
    */
-  switchRestaurantAndReload(
+  async switchRestaurantAndReload(
     profile: Profile,
     membership: RestaurantRole,
     landingPath: string,
-  ): RestaurantSwitchOutcome {
+  ): Promise<RestaurantSwitchOutcome> {
     if (!Array.isArray(profile?.restaurant_roles) || !profile.restaurant_roles.includes(membership)) {
       throw new Error('switchRestaurantAndReload: the membership must be an entry of the fresh profile');
     }
     this.retire();
+    // A renewal already in flight is let LAND before anything is read or
+    // written: the server rotates and blacklists on refresh, so the pair it
+    // answers with is the only live credential this login has. Discarding it
+    // would reload onto a spent refresh token and the next renewal would sign
+    // the operator out. Bounded by REFRESH_TRANSPORT_CAP_MS.
+    await this.whenRenewalSettled();
     const documentProfileId = this.userValue?.profile?.id;
     const stored = this.readStored('user') as (LoginResponse & { profile?: Profile }) | null;
     if (!nonEmptyString(documentProfileId)
@@ -508,20 +516,35 @@ this.userSubject.next(u as any)
    * session belongs to someone else. Storage was left consistent by whoever wrote
    * it; this document's job is only to stop and get out of the way.
    */
-  retireAndReload(landingPath: string): void {
+  async retireAndReload(landingPath: string): Promise<void> {
     this.retire();
+    await this.whenRenewalSettled();
     this.hardRedirect(landingPath, 'replace');
   }
 
   /**
-   * Stop this document sending staff requests, synchronously. It also moves the
-   * session generation, so no renewal or 401 replay already under way can act
-   * either. One-way; the reload that follows is what ends it.
+   * Stop this document acting for anyone, synchronously: `AuthInterceptor`
+   * sends no staff request, and `ownerIsCurrent` answers false, so no new
+   * renewal starts, no 401 is replayed and no request can end the session.
+   *
+   * It deliberately does NOT move the session generation. A renewal already in
+   * flight belongs to the SAME login that will be reloaded, and the server has
+   * rotated (and blacklisted) the refresh token it presented, so its answer must
+   * still be persisted; moving the generation would discard it. One-way; the
+   * reload that follows is what ends it.
    */
   retire(): void {
-    if (this.retired) return;
     this.retired = true;
-    this.bumpSession();
+  }
+
+  /**
+   * Resolves once no renewal is in flight. A pending one settles by its own
+   * transport cap (`REFRESH_TRANSPORT_CAP_MS`), so this always resolves.
+   */
+  whenRenewalSettled(): Promise<void> {
+    const flight = this.flight;
+    if (!flight) return Promise.resolve();
+    return new Promise<void>(resolve => flight.outcome.subscribe({ complete: resolve, error: () => resolve() }));
   }
 
   /** Whether this document has stopped sending staff requests (see `retire`). */
@@ -645,7 +668,8 @@ this.userSubject.next(u as any)
    * reset, logout or restaurant switch does.
    */
   ownerIsCurrent(owner: RequestOwner): boolean {
-    return owner.session === this.sessionGeneration
+    return !this.retired
+      && owner.session === this.sessionGeneration
       && this.exitingSession !== this.sessionGeneration
       && owner.context === this.contextGeneration
       && owner.restaurantId === this.currentRestaurantId()
@@ -743,7 +767,9 @@ this.userSubject.next(u as any)
   private settleFlight(flight: RenewalFlight, outcome: RenewalOutcome): void {
     if (this.flight === flight) this.flight = null;
     let settled = flight.session === this.sessionGeneration ? outcome : SUPERSEDED;
-    if (settled.kind === 'rejected'
+    // A RETIRED document ends nothing: it is about to reload, and storage may
+    // already hold another tab's newer session, which a logout would destroy.
+    if (settled.kind === 'rejected' && !this.retired
         && (this.userValue as { refresh?: unknown } | null)?.refresh === flight.presentedRefresh) {
       this.logout();
       settled = { kind: 'rejected', ended: true };
@@ -782,8 +808,13 @@ this.userSubject.next(u as any)
     if (!current || current.refresh !== flight.presentedRefresh) return SUPERSEDED;
     const stored = this.readStored('user');
     if (!stored || stored.refresh !== flight.presentedRefresh) return SUPERSEDED;
+    // A RETIRED document merges the tokens into the STORED session, not its own
+    // copy: another tab may have just written a fresh profile there (a venue
+    // switch), and this document's profile is the stale one it is reloading away
+    // from. Same principal only.
+    if (this.retired && stored.profile?.id !== current.profile?.id) return SUPERSEDED;
 
-    const updated = { ...current, token: answer.access, refresh: answer.refresh };
+    const updated = { ...(this.retired ? stored : current), token: answer.access, refresh: answer.refresh };
     let durable: boolean;
     try {
       localStorage.setItem('user', JSON.stringify(updated));

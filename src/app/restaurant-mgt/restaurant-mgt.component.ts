@@ -206,7 +206,7 @@ export class RestaurantMgtComponent implements OnDestroy {
     this.cdr.detectChanges();
     this.leavingNotice?.nativeElement.focus();
     setTimeout(() => {
-      this.auth.retireAndReload(landingPathFor(this.router.url, this.auth.currentRestaurantRole));
+      void this.auth.retireAndReload(landingPathFor(this.router.url, this.auth.currentRestaurantRole));
     }, CROSS_TAB_NOTICE_MS);
   }
 

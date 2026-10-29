@@ -53,12 +53,12 @@ describe('AuthenticationService — restaurant switch (SHELL-FINISH-00 PR 3)', (
 
   afterEach(() => localStorage.clear());
 
-  it('writes ONLY the fresh profile onto the STORED session, keeping the stored tokens', () => {
+  it('writes ONLY the fresh profile onto the STORED session, keeping the stored tokens', async () => {
     // Another tab renewed after this document loaded: the stored refresh token is
     // newer than this document's. Writing the in-memory copy would put a spent one back.
     localStorage.setItem('user', JSON.stringify(session('tab-b-access', 'tab-b-refresh', profile('user-1', [memberA, memberB]))));
     const fresh = profile('user-1', [{ ...memberA }, { ...memberB }]);
-    const outcome = service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
+    const outcome = await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
 
     expect(outcome).toBe('switched');
     const stored = JSON.parse(localStorage.getItem('user')!);
@@ -67,22 +67,24 @@ describe('AuthenticationService — restaurant switch (SHELL-FINISH-00 PR 3)', (
     expect(stored.profile).toEqual(fresh);
   });
 
-  it('selects the membership taken FROM the fresh profile (with its resolved permissions)', () => {
+  it('selects the membership taken FROM the fresh profile (with its resolved permissions)', async () => {
     const fresh = profile('user-1', [memberA, { ...memberB, permissions: { ...memberB.permissions, reports: true } }]);
-    service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/reports');
+    await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/reports');
     const role = JSON.parse(localStorage.getItem('rest_role')!);
     expect(role.restaurant_id).toBe('rest-b');
     expect(role.permissions.reports).withContext('the fresh map, not the sign-in copy').toBeTrue();
   });
 
-  it('refuses a membership that is not an entry of the fresh profile (no hand-built objects)', () => {
+  it('refuses a membership that is not an entry of the fresh profile (no hand-built objects)', async () => {
     const fresh = profile('user-1', [memberA, memberB]);
-    expect(() => service.switchRestaurantAndReload(fresh as any, { ...memberB } as any, '/dashboard')).toThrowError(/fresh profile/);
+    await expectAsync(service.switchRestaurantAndReload(fresh as any, { ...memberB } as any, '/dashboard'))
+      .toBeRejectedWithError(/fresh profile/);
+    expect(service.isRetired).withContext('refused before anything stops').toBeFalse();
     expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('rest-a');
     expect(redirect).not.toHaveBeenCalled();
   });
 
-  it('clears the restaurant-scoped [dinify] keys and current_resta, keeping the operator preferences', () => {
+  it('clears the restaurant-scoped [dinify] keys and current_resta, keeping the operator preferences', async () => {
     localStorage.setItem('current_resta', JSON.stringify({ id: 'rest-a' }));
     localStorage.setItem('[dinify]tables.activeArea:rest-a', '"area-9"');
     localStorage.setItem('[dinify]menu.selectedSection:rest-a', '"s-1"');
@@ -92,7 +94,7 @@ describe('AuthenticationService — restaurant switch (SHELL-FINISH-00 PR 3)', (
     localStorage.setItem('unrelated', 'kept');
 
     const fresh = profile('user-1', [memberA, memberB]);
-    service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
+    await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
 
     expect(localStorage.getItem('current_resta')).toBeNull();
     expect(localStorage.getItem('[dinify]tables.activeArea:rest-a')).toBeNull();
@@ -103,22 +105,22 @@ describe('AuthenticationService — restaurant switch (SHELL-FINISH-00 PR 3)', (
     expect(localStorage.getItem('unrelated')).toBe('kept');
   });
 
-  it('ends in a REPLACE reload to the landing path it was given, as the LAST step', () => {
+  it('ends in a REPLACE reload to the landing path it was given, as the LAST step', async () => {
     const fresh = profile('user-1', [memberA, memberB]);
     redirect.and.callFake(() => {
       // Everything is written before the page goes.
       expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('rest-b');
     });
-    service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/menu');
+    await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/menu');
     expect(redirect.calls.allArgs()).toEqual([['/menu', 'replace']]);
   });
 
-  it('writes NOTHING when the stored session now belongs to someone else (another tab signed in)', () => {
+  it('writes NOTHING when the stored session now belongs to someone else (another tab signed in)', async () => {
     const other = JSON.stringify(session('x', 'y', profile('user-2', [memberB])));
     localStorage.setItem('user', other);
     const fresh = profile('user-1', [memberA, memberB]);
 
-    const outcome = service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
+    const outcome = await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
 
     expect(outcome).toBe('principal-changed');
     expect(localStorage.getItem('user')).toBe(other);
@@ -127,21 +129,108 @@ describe('AuthenticationService — restaurant switch (SHELL-FINISH-00 PR 3)', (
     expect(service.isRetired).withContext('it still stops sending').toBeTrue();
   });
 
-  it('writes NOTHING when the fresh profile is someone else\'s', () => {
+  it('writes NOTHING when the fresh profile is someone else\'s', async () => {
     const fresh = profile('user-2', [memberA, memberB]);
     const before = localStorage.getItem('user');
-    expect(service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard'))
+    expect(await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard'))
       .toBe('principal-changed');
     expect(localStorage.getItem('user')).toBe(before);
     expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('rest-a');
   });
 
-  it('retireAndReload writes nothing and REPLACES', () => {
+  it('retireAndReload writes nothing and REPLACES', async () => {
     const before = { ...localStorage };
-    service.retireAndReload('/login');
+    await service.retireAndReload('/login');
     expect({ ...localStorage }).toEqual(before);
     expect(redirect.calls.allArgs()).toEqual([['/login', 'replace']]);
     expect(service.isRetired).toBeTrue();
+  });
+
+  // Codex P2 on #789: a renewal already in flight when the document retires
+  // belongs to the SAME login. The server has rotated and blacklisted the refresh
+  // token it presented, so its answer must be persisted, and the reload must wait
+  // for it; otherwise the reloaded page holds a spent refresh token.
+  describe('a renewal in flight when the document retires', () => {
+    const REFRESH = `${environment.apiUrl}/api/${environment.version}/users/auth/token/refresh/`;
+    let httpMock: HttpTestingController;
+
+    const ownerOf = (svc: AuthenticationService) => ({
+      session: (svc as any).sessionGeneration,
+      context: (svc as any).contextGeneration,
+      restaurantId: 'rest-a',
+      token: 'doc-access',
+    });
+
+    beforeEach(() => { httpMock = TestBed.inject(HttpTestingController); });
+    afterEach(() => httpMock.verify());
+
+    it('a switch waits for it, keeps the rotated pair, then writes the profile and reloads', async () => {
+      service.renewSession(ownerOf(service)).subscribe();
+      const refresh = httpMock.expectOne(REFRESH);
+
+      const fresh = profile('user-1', [memberA, memberB]);
+      const done = service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
+      await Promise.resolve();
+      expect(redirect).withContext('no reload while the renewal is pending').not.toHaveBeenCalled();
+      expect(JSON.parse(localStorage.getItem('rest_role')!).restaurant_id).toBe('rest-a');
+
+      refresh.flush({ access: 'rotated-access', refresh: 'rotated-refresh' });
+      expect(await done).toBe('switched');
+
+      const stored = JSON.parse(localStorage.getItem('user')!);
+      expect(stored.token).toBe('rotated-access');
+      expect(stored.refresh).toBe('rotated-refresh');
+      expect(stored.profile).toEqual(fresh);
+      expect(redirect.calls.allArgs()).toEqual([['/dashboard', 'replace']]);
+    });
+
+    it('a cross-tab reload waits for it and merges the tokens into the STORED session (keeping the other tab\'s profile)', async () => {
+      service.renewSession(ownerOf(service)).subscribe();
+      const refresh = httpMock.expectOne(REFRESH);
+      // Another tab switched venue: same tokens, fresh profile.
+      const otherTabProfile = profile('user-1', [memberA, { ...memberB, restaurant: 'Cafe Javas (renamed)' }]);
+      localStorage.setItem('user', JSON.stringify(session('doc-access', 'doc-refresh', otherTabProfile)));
+
+      service.retire();
+      const done = service.retireAndReload('/dashboard');
+      await Promise.resolve();
+      expect(redirect).not.toHaveBeenCalled();
+
+      refresh.flush({ access: 'rotated-access', refresh: 'rotated-refresh' });
+      await done;
+      const stored = JSON.parse(localStorage.getItem('user')!);
+      expect(stored.refresh).toBe('rotated-refresh');
+      expect(stored.profile).withContext('never this document\'s stale copy').toEqual(otherTabProfile);
+      expect(redirect.calls.allArgs()).toEqual([['/dashboard', 'replace']]);
+    });
+
+    it('control: with no renewal in flight the switch reloads at once', async () => {
+      const fresh = profile('user-1', [memberA, memberB]);
+      await service.switchRestaurantAndReload(fresh as any, fresh.restaurant_roles[1] as any, '/dashboard');
+      expect(redirect).toHaveBeenCalledTimes(1);
+    });
+
+    it('a retired document still blocks replay and new renewals (ownerIsCurrent is false)', () => {
+      const owner = ownerOf(service);
+      expect(service.ownerIsCurrent(owner)).toBeTrue();
+      service.retire();
+      expect(service.ownerIsCurrent(owner)).toBeFalse();
+      let outcome: any;
+      service.renewSession(owner).subscribe(o => outcome = o);
+      expect(outcome).toEqual({ kind: 'superseded' });
+      httpMock.expectNone(REFRESH);
+    });
+
+    it('a retired document ends nothing: a refused renewal does not sign this browser out', async () => {
+      service.renewSession(ownerOf(service)).subscribe();
+      const refresh = httpMock.expectOne(REFRESH);
+      service.retire();
+      const before = localStorage.getItem('user');
+      refresh.flush({ detail: 'Token is blacklisted', code: 'token_not_valid' }, { status: 401, statusText: 'Unauthorized' });
+      await service.whenRenewalSettled();
+      httpMock.expectNone(`${environment.apiUrl}/api/${environment.version}/users/auth/logout/`);
+      expect(localStorage.getItem('user')).toBe(before);
+    });
   });
 });
 

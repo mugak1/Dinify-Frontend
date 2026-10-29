@@ -3074,15 +3074,23 @@ so keep it current when conventions change.
   longer lists, or a failed read, gives an inline error under the name and changes
   nothing. `AuthenticationService.switchRestaurantAndReload` then:
   1. stops staff requests (`retire()`: `AuthInterceptor` returns `EMPTY` for every
-     API request and the session generation moves, so no renewal or 401 replay acts);
-  2. reads the STORED `user`, and if its profile id, this document's and the fresh
+     API request, and `ownerIsCurrent` answers false, so no new renewal starts, no
+     401 is replayed and nothing ends the session);
+  2. WAITS for a renewal already in flight (`whenRenewalSettled`, bounded by the
+     60 s transport cap). `retire()` deliberately does NOT move the session
+     generation: the server rotates and blacklists on refresh, so discarding that
+     answer would reload onto a spent refresh token and the next renewal would sign
+     the operator out (Codex P2 on #789). A retired tab merges the rotated tokens
+     into the STORED session, not its own stale copy, and never logs out on a
+     refused renewal;
+  3. reads the STORED `user`, and if its profile id, this document's and the fresh
      profile's are not all the same, writes nothing and answers
      `'principal-changed'` (the caller reloads into what is stored);
-  3. otherwise replaces only `profile` (the stored tokens are kept, because another
+  4. otherwise replaces only `profile` (the stored tokens are kept, because another
      tab may have rotated the refresh token), sets `rest_role`, removes
      `current_resta` and clears the `[dinify]` keys except `menu.sortMode:` and
      `sidebar.expanded`;
-  4. LAST, `location.replace` to the landing path. A soft navigation would leave
+  5. LAST, `location.replace` to the landing path. A soft navigation would leave
      every root service holding the old restaurant's data.
 
   **ONE LANDING RULE** (`layout/restaurant-landing.ts`, `landingPathFor`): the same
@@ -3097,7 +3105,8 @@ so keep it current when conventions change.
   `currentScope()` uses, so a token renewal elsewhere is ignored. On a change it
   calls `retire()` FIRST, synchronously, then shows a short notice ("Switched to X
   in another tab", "Someone else signed in…", "Signed out in another tab") and after
-  `CROSS_TAB_NOTICE_MS` reloads by the same landing rule. Retiring first matters: a
+  `CROSS_TAB_NOTICE_MS` reloads by the same landing rule (after any renewal in
+  flight has landed). Retiring first matters: a
   field that saves on blur would otherwise send the old page's data under the new
   restaurant's id as the notice takes focus. The kitchen board is outside the shell
   and keeps following `rest_role` by design.
