@@ -2988,6 +2988,50 @@ so keep it current when conventions change.
   harness** — it belongs to the 42-check one at that revision and is labelled so
 - Notifications: scaffolded and routed (route `notifications`,
   `RestNotificationsComponent`) — per-view data-wiring status varies
+- **THE PORTAL SHELL HAS THREE WIDTH REGIMES, FROM ONE SOURCE (SHELL-FINISH-00, PR 1).**
+  ✅ `restaurant-mgt/layout/shell-layout.ts` holds `RAIL_MIN_PX = 1024` and
+  `PUSH_MIN_PX = 1280` and `regimeForWidth()`; nothing else in the shell names a
+  sidebar boundary. No sidebar `lg:`/`xl:` class remains and the `styles.css`
+  scroll-lock rule has no media query.
+
+  | Width | Regime | In flow | Expanding it |
+  |---|---|---|---|
+  | below 1024 | `drawer` | 0 | an overlay drawer, opened from the top bar's menu button |
+  | 1024–1279 | `rail-overlay` | the 64px icon rail | the full sidebar opens OVER the content, never pushing it |
+  | 1280 and above | `rail-push` | 64 or 220 | pushes, by the saved preference |
+
+  **WHY 1280 STILL MATTERS.** On 24 June an iPad Pro in portrait (exactly 1024px) got
+  the 220px rail in flow, which pushed the content. So 1024–1279 gets the rail but
+  only an overlay expansion. That expansion is also how a touch tablet reads the
+  labels: the collapsed rail's tooltip responds only to a mouse.
+
+  **THREE STATES, ONLY ONE PERSISTED.** `drawerOpen` and `railOverlayOpen` are
+  never saved. `[dinify]sidebar.expanded` is written only by the rail toggle in the
+  push regime. One boolean used to mean "drawer open" on a phone and "rail expanded"
+  on a desktop, and it persisted every write, so closing the drawer on a phone saved
+  "collapsed" for the desktop.
+
+  **What closes an overlay.** The shell listens to `window:resize`, which covers
+  rotation. Crossing a boundary closes both overlays, and the saved preference is
+  untouched. Navigation closes both overlays. One backdrop serves both overlays, and
+  tapping it closes them. Esc closes them and returns focus to the control that
+  opened them: the menu button or the rail toggle.
+
+  **Accessibility.** The shell sets `body.dn-drawer-open` (scroll lock) only while an
+  overlay is open. A closed drawer is `[inert]`, and only in the drawer regime. The
+  menu button and the rail toggle carry `aria-expanded` plus
+  `aria-controls="portal-sidebar"`, and both are 44px. The toggle keeps its 32px
+  circle and sits below the 56px logo header, so it no longer overlaps the collapsed
+  emblem. Rail items are 44px. The "you are here" marker now shows on the collapsed
+  rail too.
+
+  **Page layout stays as it was.** Every other `lg:`/`xl:` class is page layout and
+  was not moved. One known cost, accepted by the owner: at 1024px the main area is
+  960px, so the Dashboard's Popular Items card truncates item names. Audit item 1's
+  rework of that card handles it.
+
+  Pinned by `restaurant-mgt.component.spec.ts`, `sidebar.component.spec.ts` and
+  `top-nav.component.spec.ts`
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
   persistent `OfflineBannerComponent` in the restaurant portal shell (its only
   host now that the admin plane has left) and an `OfflineStripComponent` in the

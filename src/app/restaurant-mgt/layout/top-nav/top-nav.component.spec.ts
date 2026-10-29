@@ -48,4 +48,18 @@ describe('TopNavComponent', () => {
     expect(fixture.nativeElement.querySelector('app-dn-segmented')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-timeframe-picker')).toBeNull();
   });
+
+  it('renders the menu button only when the shell asks for it (the drawer regime)', () => {
+    expect(fixture.nativeElement.querySelector('[data-testid="menu-button"]')).toBeNull();
+    fixture.componentRef.setInput('showMenuButton', true);
+    fixture.detectChanges();
+    const btn = fixture.nativeElement.querySelector('[data-testid="menu-button"]') as HTMLButtonElement;
+    expect(btn).not.toBeNull();
+    expect(btn.getAttribute('aria-controls')).toBe('portal-sidebar');
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(btn.getBoundingClientRect().width).withContext('44px touch target').toBe(44);
+    fixture.componentRef.setInput('menuExpanded', true);
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+  });
 });

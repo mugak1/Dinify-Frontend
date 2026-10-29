@@ -1,23 +1,33 @@
-<!-- Wrapper: fixed overlay drawer <xl (slides in via translate-x), in-flow
-xl:relative rail >=xl. This fixed/relative position also anchors the
-absolute toggle button. -->
-<div class="group flex-none fixed xl:relative inset-y-0 left-0 z-50 transition-transform duration-300 xl:translate-x-0"
-  [ngClass]="{ '-translate-x-full': !isOpen }">
+<!-- In-flow spacer: 0px below 1024, the 64px rail at 1024–1279, and the rail
+(64px) or the expanded sidebar (220px) from 1280. The width comes from the shell,
+which owns the regime (layout/shell-layout.ts) — no breakpoint class lives here. -->
+<div class="relative flex-none transition-[width] duration-300" [style.width.px]="inFlowWidth">
 
-  <aside class="bg-sidebar text-sidebar-foreground flex flex-col h-full transition-all duration-300 border-r border-sidebar-border"
-    [style.width.px]="isOpen ? 220 : 64">
+  <!-- The panel. Below 1024 it is a fixed drawer that slides in from the left; from
+  1024 it is anchored to the spacer and, when expanded at 1024–1279, overflows OVER
+  the content rather than pushing it. It also anchors the toggle. A closed drawer is
+  [inert], so it leaves the tab order and the accessibility tree. -->
+  <div id="portal-sidebar" class="group inset-y-0 left-0 z-50 transition-[transform,width] duration-300"
+    data-testid="sidebar-panel"
+    [class.fixed]="regime === 'drawer'"
+    [class.absolute]="regime !== 'drawer'"
+    [class.-translate-x-full]="closedDrawer"
+    [attr.inert]="closedDrawer ? '' : null"
+    [style.width.px]="panelWidth">
+
+  <aside class="bg-sidebar text-sidebar-foreground flex flex-col h-full w-full border-r border-sidebar-border">
 
     <!-- Logo header -->
-    <div class="flex items-center h-16 px-4 border-b border-sidebar-border"
-      [ngClass]="{ 'justify-center': !isOpen }">
+    <div class="flex items-center h-[56px] border-b border-sidebar-border"
+      [ngClass]="expanded ? 'px-4' : 'justify-center'">
       <!-- Expanded: full logo (emblem + wordmark) -->
-      @if (isOpen) {
+      @if (expanded) {
         <a [href]="auth.firstAccessibleRoute()" class="flex items-center overflow-hidden">
           <img src="assets/images/dinify-logo-dark-background.svg" alt="Dinify" class="h-[24px] w-auto max-w-[140px]" />
         </a>
       }
       <!-- Collapsed: emblem only -->
-      @if (!isOpen) {
+      @if (!expanded) {
         <a [href]="auth.firstAccessibleRoute()" class="flex items-center justify-center w-full">
           <img src="assets/images/dinify-emblem.svg" alt="Dinify" class="h-[24px] w-[24px]" />
         </a>
@@ -26,7 +36,7 @@ absolute toggle button. -->
 
     <!-- Nav items -->
     <nav aria-label="Primary" class="flex-1 py-5 space-y-2 overflow-y-auto no-scrollbar"
-      [ngClass]="isOpen ? 'px-4' : 'px-2'">
+      [ngClass]="expanded ? 'px-4' : 'px-2'">
       @for (item of visibleNavItems; track item) {
         <a
           [routerLink]="item.route" routerLinkActive="bg-sidebar-accent font-medium"
@@ -34,10 +44,12 @@ absolute toggle button. -->
           [target]="item.newTab ? '_blank' : undefined"
           [attr.rel]="item.newTab ? 'noopener' : null"
           class="relative flex items-center rounded-lg transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          [ngClass]="isOpen ? 'gap-3 px-3 py-2' : 'justify-center mx-auto h-[40px] w-[40px]'"
-          [appTooltip]="!isOpen ? item.label : ''">
-          @if (rla.isActive && isOpen) {
-            <span aria-hidden="true"
+          [ngClass]="expanded ? 'gap-3 px-3 py-2' : 'justify-center mx-auto h-[44px] w-[44px]'"
+          [appTooltip]="!expanded ? item.label : ''">
+          <!-- The "you are here" marker, in BOTH states: on the collapsed rail it
+          is the only indicator besides the icon colour. -->
+          @if (rla.isActive) {
+            <span aria-hidden="true" data-testid="nav-active-marker"
             class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-d-red"></span>
           }
           <svg aria-hidden="true" class="w-5 h-5 shrink-0" [class.text-d-red]="rla.isActive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -68,8 +80,8 @@ absolute toggle button. -->
               }
             }
           </svg>
-          <span class="text-sm truncate" [class.sr-only]="!isOpen" [class.text-white]="rla.isActive">{{ item.label }}@if (item.newTab) {<span class="sr-only"> (opens in a new tab)</span>}</span>
-          @if (item.newTab && isOpen) {
+          <span class="text-sm truncate" [class.sr-only]="!expanded" [class.text-white]="rla.isActive">{{ item.label }}@if (item.newTab) {<span class="sr-only"> (opens in a new tab)</span>}</span>
+          @if (item.newTab && expanded) {
             <svg aria-hidden="true" data-testid="nav-new-tab-icon" class="w-3.5 h-3.5 shrink-0 ml-auto opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
             </svg>
@@ -79,7 +91,7 @@ absolute toggle button. -->
 
       <!-- No-modules note: a membership whose permissions grant no module (same
       predicate as the /account landing) sees only Support above + this. -->
-      @if (noModuleUser && isOpen) {
+      @if (noModuleUser && expanded) {
         <p
           class="px-3 py-2 text-xs leading-snug text-sidebar-foreground/70">
           No modules assigned — contact your owner.
@@ -91,10 +103,10 @@ absolute toggle button. -->
     <a [routerLink]="'/account'"
       routerLinkActive="bg-sidebar-accent text-sidebar-primary" ariaCurrentWhenActive="page"
       class="relative flex items-center h-[64px] border-t border-sidebar-border transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-      [ngClass]="isOpen ? 'gap-3 px-4' : 'justify-center px-2'"
-      [appTooltip]="!isOpen ? (chipName || 'Account') : ''">
+      [ngClass]="expanded ? 'gap-3 px-4' : 'justify-center px-2'"
+      [appTooltip]="!expanded ? (chipName || 'Account') : ''">
       <app-dn-avatar size="sm" variant="brand" [name]="chipName"></app-dn-avatar>
-      <div class="flex flex-col min-w-0" [class.sr-only]="!isOpen">
+      <div class="flex flex-col min-w-0" [class.sr-only]="!expanded">
         <span class="text-sm font-medium truncate">{{ chipName || 'Account' }}</span>
         @if (chipRole) {
           <span class="text-xs uppercase tracking-wide text-sidebar-foreground/60 truncate">{{ chipRole }}</span>
@@ -103,21 +115,30 @@ absolute toggle button. -->
     </a>
   </aside>
 
-  <!-- Toggle button: OUTSIDE aside, INSIDE wrapper.
+  <!-- Rail toggle: OUTSIDE aside, INSIDE the panel, shown from 1024 (the drawer
+  is opened from the top bar's menu button instead). Below the logo header so it
+  never overlaps the collapsed emblem. The circle stays 32px; the button around it
+  is a 44px touch target.
   rounded-full is a DELIBERATE exception to the project's rounded-none default —
   keep the toggle circular; do not square it in a future cleanup pass. The
   near-white fill + 1px neutral border make it pop off the black rail while
-  staying delineated from the white canvas at the seam (flat, no drop shadow).
-  Position (absolute top-5 -right-3) is unchanged. -->
-  <button (click)="sidebarToggle.emit()"
-    [attr.aria-label]="isOpen ? 'Collapse sidebar' : 'Expand sidebar'"
-    [attr.aria-expanded]="isOpen"
-    [attr.title]="isOpen ? 'Collapse sidebar' : 'Expand sidebar'"
-    class="absolute top-5 -right-3 z-10 hidden xl:flex items-center justify-center w-[32px] h-[32px] rounded-full bg-white border border-neutral-300 text-neutral-900 desktop-hover:border-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors">
-    <svg aria-hidden="true" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
-      <path [attr.d]="isOpen ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
-      <path [attr.d]="isOpen ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>
-    </svg>
-  </button>
+  staying delineated from the white canvas at the seam (flat, no drop shadow). -->
+  @if (regime !== 'drawer') {
+    <button #toggle type="button" (click)="sidebarToggle.emit()"
+      data-testid="sidebar-toggle"
+      aria-controls="portal-sidebar"
+      [attr.aria-label]="expanded ? 'Collapse sidebar' : 'Expand sidebar'"
+      [attr.aria-expanded]="expanded"
+      [attr.title]="expanded ? 'Collapse sidebar' : 'Expand sidebar'"
+      class="absolute top-[36px] -right-[17px] z-10 flex items-center justify-center w-[44px] h-[44px] rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      <span class="flex items-center justify-center w-[32px] h-[32px] rounded-full bg-white border border-neutral-300 text-neutral-900 transition-colors desktop-hover:border-neutral-900">
+        <svg aria-hidden="true" class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+          <path [attr.d]="expanded ? 'm11 17-5-5 5-5' : 'm6 17 5-5-5-5'"/>
+          <path [attr.d]="expanded ? 'm18 17-5-5 5-5' : 'm13 17 5-5-5-5'"/>
+        </svg>
+      </span>
+    </button>
+  }
+  </div>
 
 </div>

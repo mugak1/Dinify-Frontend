@@ -1,11 +1,12 @@
-import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter, OnChanges, OnDestroy, SimpleChanges, Inject } from '@angular/core';
-import { CommonModule, DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, Output, EventEmitter, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TooltipDirective } from '../../../_shared/ui/tooltip/tooltip.directive';
 import { AvatarComponent } from '../../../_shared/ui';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ModuleKey } from '../../../_models/app.models';
 import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
+import { EXPANDED_WIDTH_PX, RAIL_WIDTH_PX, ShellRegime } from '../shell-layout';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -15,9 +16,16 @@ import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
   templateUrl: './sidebar.component.html',
   styles: [`:host { display: contents; }`]
 })
-export class SidebarComponent implements OnChanges, OnDestroy {
-  @Input() isOpen = false;
+export class SidebarComponent {
+  /** The shell's width regime (layout/shell-layout.ts). */
+  @Input() regime: ShellRegime = 'rail-push';
+  /** The labelled 220px panel is showing (open drawer, rail overlay, or expanded rail). */
+  @Input() expanded = false;
+  /** The width the sidebar takes in flow; the shell derives it from the regime. */
+  @Input() inFlowWidth = RAIL_WIDTH_PX;
   @Output() sidebarToggle = new EventEmitter<void>();
+
+  @ViewChild('toggle') private toggleButton?: ElementRef<HTMLButtonElement>;
 
   // `module` keys the item to an RBAC module; an undefined module (Support) is
   // always shown. Items the current membership can't access are filtered out by
@@ -42,25 +50,21 @@ export class SidebarComponent implements OnChanges, OnDestroy {
     { label: 'Settings',  route: '/settings',      icon: 'settings',  module: 'settings' },
   ];
 
-  constructor(
-    public auth: AuthenticationService,
-    @Inject(DOCUMENT) private document: Document,
-  ) {}
+  constructor(public auth: AuthenticationService) {}
 
-  /**
-   * Lock background scroll while the mobile drawer is open. This only flips a
-   * body class; a `<xl`-scoped CSS rule (styles.css) owns the actual lock, so
-   * desktop — where `isOpen` just means the rail is expanded — is never locked
-   * and no JS viewport check is needed.
-   */
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['isOpen']) {
-      this.document.body.classList.toggle('dn-drawer-open', this.isOpen);
-    }
+  /** A closed drawer: off-screen, and [inert] so it leaves the tab order. */
+  get closedDrawer(): boolean {
+    return this.regime === 'drawer' && !this.expanded;
   }
 
-  ngOnDestroy(): void {
-    this.document.body.classList.remove('dn-drawer-open');
+  /** The drawer is always the full sidebar; the rail is 64px until expanded. */
+  get panelWidth(): number {
+    return this.regime === 'drawer' || this.expanded ? EXPANDED_WIDTH_PX : RAIL_WIDTH_PX;
+  }
+
+  /** Return focus to the rail toggle (Esc closing the 1024–1279 overlay). */
+  focusToggle(): void {
+    this.toggleButton?.nativeElement.focus();
   }
 
   /** Nav items the current membership may access (always keeps module-less items). */

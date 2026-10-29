@@ -8,17 +8,24 @@
     >
     <!-- Row 1: Menu button + Date filters -->
     <div class="flex items-center gap-2 sm:gap-4 flex-1">
-      <button
-        (click)="menuClick.emit()"
-        class="xl:hidden p-2 -ml-2 rounded-md hover:bg-accent transition-colors flex-shrink-0"
-        aria-label="Toggle sidebar"
-        >
-        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" x2="20" y1="12" y2="12"/>
-          <line x1="4" x2="20" y1="6" y2="6"/>
-          <line x1="4" x2="20" y1="18" y2="18"/>
-        </svg>
-      </button>
+      <!-- Only in the drawer regime (below 1024); from 1024 the rail's own toggle
+      opens the sidebar. The shell decides, from layout/shell-layout.ts. -->
+      @if (showMenuButton) {
+        <button #menuButton type="button"
+          (click)="menuClick.emit()"
+          data-testid="menu-button"
+          class="h-[44px] w-[44px] -ml-[10px] inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors flex-shrink-0"
+          aria-label="Open navigation"
+          aria-controls="portal-sidebar"
+          [attr.aria-expanded]="menuExpanded"
+          >
+          <svg aria-hidden="true" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" x2="20" y1="12" y2="12"/>
+            <line x1="4" x2="20" y1="6" y2="6"/>
+            <line x1="4" x2="20" y1="18" y2="18"/>
+          </svg>
+        </button>
+      }
 
       <!-- Right side: projected content + the current restaurant name. The name
       is surfaced here so a multi-venue operator always sees which venue they

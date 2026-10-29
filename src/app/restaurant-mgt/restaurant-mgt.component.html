@@ -1,13 +1,22 @@
 <div class="flex h-screen bg-background">
-  @if (sidebarOpen) {
-    <div class="fixed inset-0 bg-black/50 z-40 xl:hidden" (click)="sidebarOpen = false"></div>
+  <!-- One backdrop for both overlays: the drawer below 1024 and the rail's
+  overlay expansion at 1024–1279. Tapping it closes whichever is open. -->
+  @if (overlayOpen) {
+    <div class="fixed inset-0 bg-black/50 z-40" data-testid="shell-backdrop" (click)="closeOverlays()"></div>
   }
-  <app-sidebar [isOpen]="sidebarOpen" (sidebarToggle)="sidebarOpen = !sidebarOpen"></app-sidebar>
+  <app-sidebar
+    [regime]="regime"
+    [expanded]="sidebarExpanded"
+    [inFlowWidth]="inFlowWidth"
+    (sidebarToggle)="onRailToggle()"
+  ></app-sidebar>
   <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <app-offline-banner></app-offline-banner>
     <app-top-nav
       [compact]="isMenuRoute"
-      (menuClick)="sidebarOpen = !sidebarOpen"
+      [showMenuButton]="regime === 'drawer'"
+      [menuExpanded]="drawerOpen"
+      (menuClick)="onMenuButton()"
       (logoutClick)="logout()"
     ></app-top-nav>
     <main
