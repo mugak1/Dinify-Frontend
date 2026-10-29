@@ -75,6 +75,9 @@ the floor. -->
 
   <ng-content></ng-content>
 
+  <!-- Right: alerts, then who. The bell polls only while it is on screen. -->
+  <app-notification-bell></app-notification-bell>
+
   <!-- Right: who. The avatar is identity, not an action — neutral, never brand red. -->
   <button type="button"
     [appDnMenuTriggerFor]="accountMenu"

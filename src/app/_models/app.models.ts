@@ -616,6 +616,22 @@ export interface NotificationItem {
   creation_timestamp: NotificationTimestamp
 }
 
+/**
+ * One row of the in-app inbox (`GET notifications/inbox/`, SHELL-FINISH-00 PR 5).
+ * The server decides what is visible to whom; the client only renders it.
+ * `kind` stays a string, not a union: a newer server may send a kind this
+ * build does not know, and it still renders, neutrally.
+ */
+export interface InboxNotification {
+  id: string
+  kind: string
+  module: string
+  occurred_at: string
+  read: boolean
+  payload: Record<string, unknown>
+  actor_name: string | null
+}
+
 export interface NotificationTimestamp {
   date: number
   month: number

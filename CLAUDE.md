@@ -2989,8 +2989,9 @@ so keep it current when conventions change.
   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, PostgreSQL 16, development assets.
   **The G1/G2 28/42 production-revert figure is NOT restated for the 56-check
   harness** — it belongs to the 42-check one at that revision and is labelled so
-- Notifications: scaffolded and routed (route `notifications`,
-  `RestNotificationsComponent`) — per-view data-wiring status varies
+- Notifications: the page (route `notifications`, `RestNotificationsComponent`)
+  reads the in-app inbox, and the top bar's bell links to it. See SHELL-FINISH-00
+  PR 5 below
 - **THE PORTAL SHELL HAS THREE WIDTH REGIMES, FROM ONE SOURCE (SHELL-FINISH-00, PR 1).**
   ✅ `restaurant-mgt/layout/shell-layout.ts` holds `RAIL_MIN_PX = 1024` and
   `PUSH_MIN_PX = 1280` and `regimeForWidth()`; nothing else in the shell names a
@@ -3040,7 +3041,7 @@ so keep it current when conventions change.
   bar, at every width. Before, it varied from 31.5 to 59.5px with width and route.
 
   **What it shows.** Left: the menu button (below 1024 only) and the venue name.
-  Right: the avatar trigger, a 44px button with the neutral avatar, opening the
+  Right: the notifications bell (PR 5), then the avatar trigger, a 44px button with the neutral avatar, opening the
   shared menu. The menu has a visual identity header (name, plus the role through
   `roleLabel()`), **My account** (`/account`) and **Sign out**. The trigger's
   accessible name says whose menu it is.
@@ -3123,6 +3124,47 @@ so keep it current when conventions change.
   `restaurant-mgt.cross-tab.spec.ts` (all four in `test:tenant-boundary`; see F11 in
   `docs/TENANT_ISOLATION_CLOSURE.md`), `error.interceptor.spec.ts`,
   `top-nav.component.spec.ts` and `menu.directives.spec.ts`
+- **THE BELL AND THE NOTIFICATIONS PAGE READ THE IN-APP INBOX (SHELL-FINISH-00, PR 5).**
+  ✅ The page used to read the MongoDB `notifications` collection through
+  `api/v1/notifications/`. The server cannot reach MongoDB, so it always showed
+  "You're all caught up". It now reads the PostgreSQL inbox from backend #379,
+  `notifications/inbox/?restaurant=<selected>`. The server decides what this user may
+  see (module access, never their own action, the last 30 days); the client only
+  renders it. Today's events: a review below 4 stars (opens
+  `/reviews/feed?view=attention`), a dish sold out from the kitchen board, and
+  ordering paused or resumed. `_common/common-notifications` and the
+  `NotificationItem` model still use the legacy endpoint; nothing renders them.
+
+  **The bell** (`layout/notification-bell/`, in the top bar before the avatar) links
+  to `/notifications`. Its badge is ink (`bg-foreground`), never brand red: a count is
+  information. It shows up to 9, then "9+"; the accessible name carries the real
+  count.
+
+  **The count** is `layout/notification-inbox.service.ts`
+  (`GET notifications/inbox/unread-count/`):
+  - every 60 s while the tab is visible; nothing while hidden; once straight away
+    when it becomes visible again; and on `refresh()`, which the page calls after a
+    read;
+  - polling runs only while the bell is on screen, so never on the kitchen board;
+  - one request at a time, each abandoned after 10 s; a refresh asked for during a
+    flight is sent once after it settles;
+  - `SILENT_FAILURE` on every poll, so a failed poll shows no toast and keeps the
+    last count; an unreadable count is ignored, never read as 0;
+  - it never resets the idle-logout timer. `InactivityService` counts only input
+    events; do not teach it about polling.
+
+  **The page** has four states: loading, empty, error with Retry, and ready. Its load
+  carries `SILENT_FAILURE` because it shows its own error card, and an unreadable
+  answer is an error, never "all caught up". Opening an unread row marks it read on
+  the server and lowers the bell at once; a failed read puts it back. "Mark all as
+  read" uses `notifications/inbox/read-all/?restaurant=`. Rows are worded from `kind`
+  and `payload` by `rest-notifications/inbox-notification.ts`; a kind this build
+  does not know still renders, as "New notification". The unread dot keeps its
+  colour-roles allowlist entry.
+
+  Pinned by `notification-inbox.service.spec.ts` and the page spec (both through the
+  real `ApiService` and `ErrorInterceptor`), `notification-bell.component.spec.ts`
+  and `top-nav.component.spec.ts`
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
   persistent `OfflineBannerComponent` in the restaurant portal shell (its only
   host now that the admin plane has left) and an `OfflineStripComponent` in the
