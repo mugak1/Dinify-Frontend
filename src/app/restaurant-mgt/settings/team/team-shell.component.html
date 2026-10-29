@@ -10,11 +10,24 @@ other settings sections do. -->
       aria-label="Team"
       >
       @for (n of nav; track n.key) {
+        <!-- Active state is bound explicitly (never routerLinkActive classes stacked on the
+             base text colour: cn()/class order cannot make one win). The 3px brand-red bar
+             is the sidebar's "you are here" marker. -->
         <a
           [routerLink]="n.path"
-          routerLinkActive="bg-accent text-accent-foreground font-medium"
-          class="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          routerLinkActive
+          #rla="routerLinkActive"
+          ariaCurrentWhenActive="page"
+          class="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+          [class.bg-secondary]="rla.isActive"
+          [class.text-foreground]="rla.isActive"
+          [class.font-semibold]="rla.isActive"
+          [class.text-muted-foreground]="!rla.isActive"
           >
+          @if (rla.isActive) {
+            <span aria-hidden="true"
+              class="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-primary"></span>
+          }
           <svg
             aria-hidden="true"
             class="w-5 h-5 shrink-0"
@@ -54,9 +67,19 @@ other settings sections do. -->
         @for (n of nav; track n.key) {
           <a
             [routerLink]="n.path"
-            routerLinkActive="bg-accent text-accent-foreground font-medium"
-            class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground whitespace-nowrap transition-colors"
+            routerLinkActive
+            #rla="routerLinkActive"
+            ariaCurrentWhenActive="page"
+            class="relative flex items-center gap-2 rounded-md px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground whitespace-nowrap transition-colors"
+            [class.bg-secondary]="rla.isActive"
+            [class.text-foreground]="rla.isActive"
+            [class.font-semibold]="rla.isActive"
+            [class.text-muted-foreground]="!rla.isActive"
             >
+            @if (rla.isActive) {
+              <span aria-hidden="true"
+                class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-primary"></span>
+            }
             <svg
               aria-hidden="true"
               class="w-4 h-4 shrink-0"

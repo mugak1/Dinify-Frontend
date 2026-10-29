@@ -162,7 +162,7 @@
               &middot; {{ areaTables.length }} tables &middot; {{ totalSeats }} seats
             </p>
           </div>
-          <app-dn-badge [variant]="area.isActive ? 'default' : 'secondary'" class="ml-2">
+          <app-dn-badge [variant]="area.isActive ? 'success' : 'secondary'" class="ml-2">
             {{ area.isActive ? 'Open' : 'Closed' }}
           </app-dn-badge>
         </div>
@@ -181,7 +181,7 @@
             <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
           </button>
           <button
-            class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
+            class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-muted-foreground desktop-hover:text-destructive desktop-hover:bg-destructive/10 active:bg-destructive/10 transition-colors"
             [appTooltip]="'Delete area'"
             (click)="requestDeleteArea(area)"
           >
@@ -296,7 +296,7 @@
                             </button>
                             <!-- Regenerate QR (secure rotation — revokes the old one) -->
                             <button
-                              class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-destructive desktop-hover:bg-accent active:bg-accent transition-colors"
+                              class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-destructive desktop-hover:bg-destructive/10 active:bg-destructive/10 transition-colors"
                               [appTooltip]="'Regenerate QR (revokes the old one)'"
                               [attr.aria-label]="'Regenerate QR for table ' + table.number"
                               (click)="openRotateConfirm(table)"
@@ -329,7 +329,7 @@
                         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                       </button>
                       <button
-                        class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md desktop-hover:bg-accent active:bg-accent transition-colors"
+                        class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-muted-foreground desktop-hover:text-destructive desktop-hover:bg-destructive/10 active:bg-destructive/10 transition-colors"
                         [appTooltip]="'Delete table'"
                         (click)="requestDeleteTable(table)"
                       >

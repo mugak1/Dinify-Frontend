@@ -3,13 +3,16 @@ import { cn } from '../../utils/cn';
 
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
 
+// Badges are labels and statuses, never actions, so none of them is brand red:
+// default = a chosen/neutral-strong label (ink), success = open/done (green tint),
+// warning = waiting (amber tint), destructive = a real problem.
 const variantClasses: Record<BadgeVariant, string> = {
-  default: 'bg-primary text-primary-foreground',
+  default: 'bg-selected text-selected-foreground',
   secondary: 'bg-secondary text-secondary-foreground',
   destructive: 'bg-destructive text-destructive-foreground',
   outline: 'border border-input text-foreground bg-transparent',
-  success: 'bg-success text-success-foreground',
-  warning: 'bg-warning text-warning-foreground',
+  success: 'bg-green-100 text-green-800',
+  warning: 'bg-amber-100 text-amber-900',
 };
 
 @Component({

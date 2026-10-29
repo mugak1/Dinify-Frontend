@@ -18,7 +18,7 @@ export interface HasUnsavedChanges {
  * confirm first. Returns `true` immediately when the component is pristine.
  * Otherwise it opens the shared confirm dialog — which is created at app root
  * (`app.component.ts`), so it renders over any view — and resolves to the user's
- * choice (Discard = leave, Keep editing = stay).
+ * choice (Discard changes = leave, Keep editing = stay).
  */
 export const unsavedChangesGuard: CanDeactivateFn<HasUnsavedChanges> = (component) => {
   if (!component?.isDirty) {
@@ -30,7 +30,8 @@ export const unsavedChangesGuard: CanDeactivateFn<HasUnsavedChanges> = (componen
     .openModal({
       title: 'Discard changes?',
       message: 'You have unsaved changes that will be lost if you leave this page.',
-      submitButtonText: 'Discard',
+      tone: 'destructive',
+      submitButtonText: 'Discard changes',
       cancelButtonText: 'Keep editing',
     })
     .pipe(

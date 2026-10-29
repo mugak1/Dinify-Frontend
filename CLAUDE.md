@@ -4016,8 +4016,28 @@ optional subtitle and a right-aligned actions slot) — reuse it for portal page
 titles instead of hand-rolling an `<h1>`. All portal buttons/CTAs are unified on
 `app-dn-button` (selector `app-dn-button, button[app-dn-button]`).
 
+Colour roles in the shared components (see Styling Rules → colour roles):
+`app-dn-button`'s `default`/`cta` are the act colour; `link` is INK
+(`text-foreground font-medium`, underline on hover); `ghost`/`outline` hover to the
+grey `--accent`; two danger variants exist for danger that is NOT the view's main job —
+`ghost-destructive` (grey at rest, danger tint on hover: a row delete) and
+`outline-destructive` (destructive outline: e.g. the QR modal's danger zone). The
+`app-dn-segmented` glider and the `app-dn-switch` "on" track are `bg-selected` (ink).
+`app-dn-badge` variants mean: `default` = ink label (a chosen tag), `success` = green
+tint (open/done), `warning` = amber tint (waiting), `secondary` = grey (closed),
+`outline` = grey outline (a neutral state such as "in progress"), `destructive` = a
+real problem. Toast `info` is ink. The legacy shared confirm dialog
+(`_common/confirm-dialog`, opened through `ConfirmDialogService`) takes
+`ConfirmaDialogData.tone`: absent/`'warning'` renders exactly as it always has
+(triangle + brand-red submit — the inactivity notice), `'destructive'` drops the
+triangle and uses the destructive submit (the unsaved-changes guard: "Discard
+changes" / "Keep editing"), `'neutral'` drops the triangle and keeps the one primary
+submit (logout: "Log out of Dinify?"). Button labels render VERBATIM (no titlecase
+pipe), so callers pass sentence case.
+
 The diner price surfaces share a presentational trio (all in `_shared/ui/`,
-re-exported from the barrel): `app-price-display` (bold brand-red effective price
+re-exported from the barrel): `app-price-display` (bold effective price — brand red by
+default for the diner, ink with `tone="neutral"` in the portal —
 beside a struck grey original; sizes sm→lg, optional `+` prefix for add-ons),
 `app-discount-badge` ("X% off" green pill — `frosted` hero / `solid` overlay
 variants, optional `· Save UGX Y` suffix), and `app-savings-indicator`
@@ -4417,6 +4437,36 @@ writing new tag, price/menu or date-range logic:
   them back. Contrast rule: white on brand red is only ~3.7:1, so brand red may
   only sit behind LARGE/BOLD CTA text; small white-on-red text must pair with
   `--destructive` or `--primary-hover` (both ≥4.5:1 with white)
+- **COLOUR ROLES: IN THE PORTAL, BRAND RED MEANS ACT, AND EACH COLOUR HAS ONE JOB
+  (COLOUR-ROLES-00).** `--accent` used to EQUAL `--primary`, so every `hover:bg-accent`
+  (78 shared ghost/outline buttons plus ~40 hand-rolled hover sites) turned red, chosen
+  options were drawn in red, pale red or a red outline depending on the file, and the
+  focus ring was red — so red meant "hovered", "chosen", "focused", "error" and "press
+  me" at once. The roles now:
+
+  | Role | Token | Used for |
+  |---|---|---|
+  | Act | brand red `--primary` | the ONE primary action per view, plus the 3px "you are here" marker (sidebar, section rail, team rail) |
+  | Danger | `--destructive` | delete/revoke, errors, invalid fields, required asterisks, a falling trend — one step away, never on every row |
+  | Selected | `--selected` (#171717, white text; `bg-selected` / `text-selected-foreground`) | chosen segment, chip, day, date, tag, "on" switch, ticked box, chosen radio, selected card |
+  | Hover / pressed | `--accent` (#F5F5F5) | every neutral button, menu row, list row and icon button |
+  | Focus | `--ring` (ink) | every focus ring — it must never look like the error state |
+  | Status | tints with dark text | green = open/done, amber = waiting, grey = neutral; never brand red |
+  | Information | `text-foreground` | prices, links, counts, decorative icons, neutral labels, info toasts |
+
+  Native checkboxes and radios take `accent-color: hsl(var(--selected))` from ONE base
+  rule in `styles.css` (there is no `@tailwindcss/forms`, so `text-*` never coloured
+  them); do not add a per-input `accent-*` class, which beats the base rule. The global
+  `.ng-submitted … .ng-invalid` border is `--destructive`. **`cn()` has no
+  tailwind-merge**: when a state changes a colour, REMOVE the old class (bind the pair,
+  e.g. `[class.bg-card]="!sel"` / `[class.bg-secondary]="sel"`), never add an override
+  beside it. In the portal pass `tone="neutral"` to `app-price-display` (its default
+  red tone stays for the diner). **Held by `npm run check:colour-roles`**
+  (`scripts/check-colour-roles.mjs`, see Verification): R1 brand red under a state
+  variant, R2 brand-red tints/outlines/`accent-*`, R3 brand-red text, R4 a solid
+  brand-red fill outside a short reviewed allowlist. Out of scope and NOT scanned: the
+  diner app, the kitchen board, the Menu preview components (which mimic the diner
+  brand), the parked Tables service view and the other auth screens
 - Corner radius flows from ONE token: `--radius` in `src/styles.css`, raised from
   `0.5rem` to `0.875rem` so the shared button/input corner reads soft on tall
   filled controls. `rounded-sm`/`rounded-md`/`rounded-lg` are all `calc()`ed off
@@ -4950,6 +5000,14 @@ Before raising any PR:
    object-graph half, asserting the live `routes` export stays clean
 3a. Run `npm run test:audit` — the dependency-audit evaluator's regression matrix,
    OFFLINE (fixtures only; it scans nothing). See "Dependency audit" below
+3b. Run `npm run check:colour-roles` — the colour-roles source gate
+   (`scripts/check-colour-roles.mjs`, COLOUR-ROLES-00): its `--self-test` first, then
+   a comment-aware, token-boundary scan of the portal and the shared pieces it consumes
+   for brand red used as anything but the act colour (R1 state variants, R2
+   tints/outlines, R3 text, R4 solid fills outside the reviewed allowlist). Pure Node,
+   a second or two; a Node script rather than a spec for the platform-role gate's
+   reason (Karma cannot read a template as text). `ALLOWLIST` is `{file, rule,
+   reason}`, one rule in one file per entry — keep it small
 4. Run `npm run test:ci` for any module you touched
 5. Run `npm run build:prod` and confirm zero errors
 5a. Build the SHIPPING configuration too —
@@ -4964,6 +5022,7 @@ Before raising any PR:
 A convenience runner `scripts/verify.sh` runs the checks in CI order —
 audit snapshot → type-check → lint → release-contract gate (`npm run test:release`) →
 dependency-audit evaluator tests (`npm run test:audit`) →
+colour-roles gate (`npm run check:colour-roles`) →
 tenant-isolation closure gate (`npm run test:tenant-boundary`) → test:ci →
 build:prod → build the shipping candidate → dependency audit (network) — continuing past failures so you see
 every problem at once, exiting non-zero if any fail. It is a manual pre-PR gate —
@@ -4971,7 +5030,9 @@ run it and paste the output into the PR; it is intentionally NOT wired as a hook
 
 CI (`.github/workflows/ci.yml`) runs every step on every PR to `main`:
 the dependency-audit snapshot, `type-check`, `lint`, the release-contract gate
-(`npm run test:release`), the dependency-audit evaluator tests, the
+(`npm run test:release`), the dependency-audit evaluator tests, the colour-roles
+gate (`npm run check:colour-roles`; `certify.yml` runs it too, because the release
+suite pins the two workflows to the same npm command list), the
 tenant-isolation closure gate
 (`npm run test:tenant-boundary` — a focused, fail-fast tenant-boundary spec set
 that runs BEFORE the full suite so a broken diner/restaurant boundary fails

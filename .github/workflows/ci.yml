@@ -92,6 +92,15 @@ jobs:
         # substitute for the scan at the end of this job.
         run: npm run test:audit
 
+      - name: Colour-roles gate
+        # Source gate (COLOUR-ROLES-00, scripts/check-colour-roles.mjs): in the
+        # restaurant portal brand red means act, nothing else — no red hover, focus,
+        # selection, tint, link, price or label. Its own --self-test first, as with the
+        # platform-role gate below, so a matcher that silently stopped matching fails
+        # here rather than passing everything. Pure Node, a second or two. Mirrors
+        # scripts/verify.sh and certify.yml.
+        run: npm run check:colour-roles
+
       - name: Tenant-isolation closure gate
         # Fail-fast boundary regression gate. Two things, in order:
         #   1. the platform-role source gate (FE-AUTH-00,

@@ -19,21 +19,21 @@
     <div>
       <label class="block text-sm font-medium text-foreground mb-2">Discount type</label>
       <div class="space-y-2">
-        <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+        <label class="flex items-start gap-3 rounded-md border border-border has-[:checked]:border-selected px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
           <input type="radio" name="discount_type"
             [checked]="discountType === 'percentage'"
             (change)="onDiscountTypeChange('percentage')"
-            class="mt-0.5 accent-primary" />
+            class="mt-0.5" />
           <span class="flex-1">
             <span class="block text-sm font-medium text-foreground">Percentage</span>
             <span class="block text-xs text-muted-foreground">Discount by a percentage of the price</span>
           </span>
         </label>
-        <label class="flex items-start gap-3 rounded-md border border-border px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+        <label class="flex items-start gap-3 rounded-md border border-border has-[:checked]:border-selected px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors">
           <input type="radio" name="discount_type"
             [checked]="discountType === 'fixed'"
             (change)="onDiscountTypeChange('fixed')"
-            class="mt-0.5 accent-primary" />
+            class="mt-0.5" />
           <span class="flex-1">
             <span class="block text-sm font-medium text-foreground">Fixed amount</span>
             <span class="block text-xs text-muted-foreground">Discount by a specific UGX amount</span>
@@ -101,8 +101,9 @@
           <button
             type="button"
             (click)="toggleDay(day.value)"
+                [attr.aria-pressed]="isDaySelected(day.value)"
                 [class]="isDaySelected(day.value)
-                  ? 'px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground'
+                  ? 'px-4 py-2 rounded-md text-sm font-medium bg-selected text-selected-foreground'
                   : 'px-4 py-2 rounded-md text-sm font-medium border border-input bg-background text-muted-foreground hover:text-foreground'">
             {{ day.label }}
           </button>
@@ -112,11 +113,11 @@
     <!-- Enhanced preview card -->
     @if (discountAmount > 0 && !isAmountTooHigh) {
       <div
-        class="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        class="rounded-lg border border-border bg-secondary p-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
             <span class="block text-xs text-muted-foreground">Final price</span>
-            <span class="block text-lg font-bold text-primary">UGX {{ formatUGX(priceAfterDiscount) }}</span>
+            <span class="block text-lg font-bold text-foreground">UGX {{ formatUGX(priceAfterDiscount) }}</span>
           </div>
           <div>
             <span class="block text-xs text-muted-foreground">Savings</span>

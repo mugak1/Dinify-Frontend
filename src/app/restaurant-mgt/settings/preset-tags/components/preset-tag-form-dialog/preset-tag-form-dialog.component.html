@@ -27,7 +27,7 @@
         [(ngModel)]="name"
         (ngModelChange)="onNameChange()"
         [maxlength]="maxName"
-        class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+        class="w-full text-sm rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
         placeholder="e.g. Spicy"
       />
       <div class="flex items-center justify-between mt-1">
@@ -45,7 +45,7 @@
             <input
               type="radio"
               name="category"
-              class="mt-0.5 h-4 w-4 accent-d-red"
+              class="mt-0.5 h-4 w-4"
               [value]="cat.value"
               [checked]="category === cat.value"
               (change)="selectCategory(cat.value)"
@@ -84,21 +84,23 @@
           type="text"
           [(ngModel)]="iconSearch"
           placeholder="Search icons"
-          class="text-xs rounded-md border border-gray-300 px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-d-red"
+          class="text-xs rounded-md border border-gray-300 px-2 py-1 w-40 focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
       <div class="grid grid-cols-6 sm:grid-cols-8 gap-1.5 max-h-44 overflow-y-auto p-1 border border-gray-100 rounded">
         <button
           type="button"
           (click)="selectIcon(null)"
-          [class]="'flex items-center justify-center h-8 w-8 rounded border text-[10px] ' + (icon === null ? 'border-d-red bg-red-50 text-d-red' : 'border-gray-200 text-gray-500 hover:bg-gray-50')"
+          [class]="'flex items-center justify-center h-8 w-8 rounded border text-[10px] ' + (icon === null ? 'border-selected ring-1 ring-selected bg-secondary text-foreground' : 'border-gray-200 text-gray-500 hover:bg-gray-50')"
+          [attr.aria-pressed]="icon === null"
           title="No icon"
         >None</button>
         @for (ic of filteredIcons; track ic.name) {
           <button
             type="button"
             (click)="selectIcon(ic.name)"
-            [class]="'flex items-center justify-center h-8 w-8 rounded border ' + (icon === ic.name ? 'border-d-red bg-red-50 text-d-red' : 'border-gray-200 text-gray-600 hover:bg-gray-50')"
+            [class]="'flex items-center justify-center h-8 w-8 rounded border ' + (icon === ic.name ? 'border-selected ring-1 ring-selected bg-secondary text-foreground' : 'border-gray-200 text-gray-600 hover:bg-gray-50')"
+            [attr.aria-pressed]="icon === ic.name"
             [title]="ic.label"
             [attr.aria-label]="ic.label"
             [innerHTML]="ic.svg"
@@ -112,7 +114,7 @@
       <input
         id="preset-tag-filterable"
         type="checkbox"
-        class="mt-0.5 h-4 w-4 accent-d-red"
+        class="mt-0.5 h-4 w-4"
         [(ngModel)]="filterable"
       />
       <label for="preset-tag-filterable" class="flex-1 cursor-pointer">

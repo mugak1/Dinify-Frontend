@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, AfterViewInit, OnDestroy } from '@angular/core';
-import { ConfirmaDialogData } from 'src/app/_models/app.models';
+import { ConfirmaDialogData, ConfirmDialogTone } from 'src/app/_models/app.models';
 import { ConfirmDialogService } from '../confirm-dialog.service';
 
 @Component({
@@ -20,6 +20,19 @@ has_reason?:boolean;
 // re-tapped while the async work it triggered (e.g. placing an order) is in flight.
 pending=false;
 
+
+  /** Absent means 'warning', which renders exactly as this dialog always has. */
+  get tone(): ConfirmDialogTone {
+    return this.data?.tone ?? 'warning';
+  }
+
+  /** The submit button: destructive red only for an action that loses data; brand red
+   *  (the dialog's one primary action) for everything else. */
+  get submitToneClass(): string {
+    return this.tone === 'destructive'
+      ? 'bg-destructive text-destructive-foreground'
+      : 'bg-primary text-primary-foreground';
+  }
 
   constructor(private confirmService:ConfirmDialogService) {
    this.confirmService.showModal?.subscribe(x=>{

@@ -41,7 +41,7 @@ const PAGE_SIZE = 50;
               <button
                 type="button"
                 class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                [class]="c.key === selectedChip ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
+                [class]="c.key === selectedChip ? 'bg-selected text-selected-foreground' : 'bg-muted text-muted-foreground'"
                 (click)="filterChange.emit(c.key)"
               >
                 {{ c.label }}
@@ -68,7 +68,7 @@ const PAGE_SIZE = 50;
           <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
             <p class="text-xs text-gray-400">† Cash is self-reported (operator-marked), not PSP-confirmed.</p>
             @if (!expanded && rows.length > recentN) {
-              <button type="button" class="text-xs text-primary hover:underline" (click)="viewAll()">
+              <button type="button" class="text-xs text-foreground font-medium hover:underline" (click)="viewAll()">
                 View all ({{ rows.length }})
               </button>
             } @else if (expanded && pageCount > 1) {

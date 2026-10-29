@@ -48,12 +48,14 @@ describe('ReportsShellComponent', () => {
     expect(current.textContent).toContain('Sales');
   });
 
-  it('renders the shared segmented control with the red brand glider on a white track', () => {
+  it('renders the shared segmented control with the ink (selected) glider on a white track', () => {
     expect(fixture.nativeElement.querySelector('app-dn-segmented')).not.toBeNull();
     const glider = fixture.nativeElement.querySelector('span[aria-hidden="true"]') as HTMLElement;
     expect(glider).not.toBeNull();
-    // Active indicator is the red (bg-primary) pill, not a neutral white glider.
-    expect(glider.className).toContain('bg-primary');
+    // Active indicator is the ink (bg-selected) pill — a chosen tab, never brand red — and
+    // not a neutral white glider.
+    expect(glider.className).toContain('bg-selected');
+    expect(glider.className).not.toContain('bg-primary');
     expect(glider.className).not.toContain('bg-background');
     // Track is white (bg-card) with a hairline border.
     const track = glider.parentElement as HTMLElement;

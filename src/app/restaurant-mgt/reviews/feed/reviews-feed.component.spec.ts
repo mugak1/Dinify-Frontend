@@ -30,6 +30,13 @@ function makeReview(overrides: Partial<ReviewListItem> = {}): ReviewListItem {
   };
 }
 
+
+/** The rendered tab buttons of the Nth app-dn-segmented on the page. */
+function segTabs(root: HTMLElement, index: number): HTMLButtonElement[] {
+  const seg = root.querySelectorAll('app-dn-segmented')[index] as HTMLElement | undefined;
+  return seg ? (Array.from(seg.querySelectorAll('button[role="tab"]')) as HTMLButtonElement[]) : [];
+}
+
 describe('ReviewsFeedComponent', () => {
   let component: ReviewsFeedComponent;
   let fixture: ComponentFixture<ReviewsFeedComponent>;
@@ -229,6 +236,59 @@ describe('ReviewsFeedComponent', () => {
 
     expect(badgeTexts()).toContain('Mystery thing');
   });
+
+  // The three filters are the shared segmented control now; a real click on each must still
+  // reach the SAME setter with the same value it always received.
+  describe('filters as segmented controls', () => {
+    it('View drives setView', () => {
+      const spy = spyOn(component, 'setView').and.callThrough();
+      const tabs = segTabs(fixture.nativeElement, 0);
+      expect(tabs.map((b) => b.textContent?.trim())).toEqual(['All reviews', 'Needs attention']);
+      tabs[1].click();
+      expect(spy).toHaveBeenCalledWith('attention');
+      expect(component.view).toBe('attention');
+    });
+
+    it('"Needs attention" keeps its amber warning icon', () => {
+      const tabs = segTabs(fixture.nativeElement, 0);
+      expect(tabs[1].querySelector('svg.text-warning')).not.toBeNull();
+      expect(tabs[0].querySelector('svg')).toBeNull();
+    });
+
+    it('Rating maps "All" to null and each star to its number', () => {
+      const spy = spyOn(component, 'setRating').and.callThrough();
+      const tabs = segTabs(fixture.nativeElement, 1);
+      expect(tabs.map((b) => b.textContent?.trim())).toEqual(['All', '5★', '4★', '3★', '2★', '1★']);
+      tabs[2].click();
+      expect(spy).toHaveBeenCalledWith(4);
+      expect(component.rating).toBe(4);
+      fixture.detectChanges();
+      segTabs(fixture.nativeElement, 1)[0].click();
+      expect(spy).toHaveBeenCalledWith(null);
+      expect(component.rating).toBeNull();
+    });
+
+    it('Status maps "All" to null and Open/Resolved to themselves', () => {
+      const spy = spyOn(component, 'setResolution').and.callThrough();
+      const tabs = segTabs(fixture.nativeElement, 2);
+      expect(tabs.map((b) => b.textContent?.trim())).toEqual(['All', 'Open', 'Resolved']);
+      tabs[2].click();
+      expect(spy).toHaveBeenCalledWith('resolved');
+      fixture.detectChanges();
+      segTabs(fixture.nativeElement, 2)[0].click();
+      expect(spy).toHaveBeenCalledWith(null);
+    });
+
+    it('the chosen filter reads as selected (aria-selected), not as a red pick', () => {
+      component.rating = 3;
+      fixture.detectChanges();
+      const tabs = segTabs(fixture.nativeElement, 1);
+      expect(tabs[3].getAttribute('aria-selected')).toBe('true');
+      expect(tabs[3].className).toContain('text-selected-foreground');
+      expect(fixture.nativeElement.innerHTML).not.toContain('bg-primary/10');
+    });
+  });
+
 });
 
 describe('ReviewsFeedComponent — ?view=attention deep-link', () => {
@@ -258,4 +318,5 @@ describe('ReviewsFeedComponent — ?view=attention deep-link', () => {
       resolutionStatus: 'open',
     });
   });
+
 });

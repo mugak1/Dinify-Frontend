@@ -46,7 +46,7 @@ type Sentiment = 'positive' | 'neutral' | 'negative';
                  "View all reviews" CTA, which already points here. -->
             <a
               routerLink="/reviews/feed"
-              class="text-xs sm:text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1"
+              class="text-xs sm:text-sm text-foreground hover:underline font-medium flex items-center gap-1"
             >
               View all <span aria-hidden="true">→</span>
             </a>

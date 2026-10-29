@@ -44,11 +44,14 @@ describe('ToastComponent', () => {
     expect(el.className).toContain('border-l-success');
   });
 
-  it('announces info politely with the primary token colour', () => {
+  it('announces info politely in ink — information, never the red an error would read as', () => {
     service.info('FYI');
     const el = toastEl();
     expect(el.getAttribute('role')).toBe('status');
     expect(el.getAttribute('aria-live')).toBe('polite');
-    expect(el.className).toContain('border-l-primary');
+    expect(el.className).toContain('border-l-foreground');
+    expect(el.className).not.toContain('border-l-primary');
+    const icon = el.querySelector('span.shrink-0') as HTMLElement;
+    expect(icon.className).toContain('text-foreground');
   });
 });

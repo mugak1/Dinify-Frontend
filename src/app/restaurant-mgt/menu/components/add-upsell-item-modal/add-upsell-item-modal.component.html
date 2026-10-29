@@ -45,13 +45,13 @@
               [class.opacity-50]="isAlreadyAdded(item)"
               [class.cursor-pointer]="!isAlreadyAdded(item)"
               [class.hover:bg-muted/50]="!isAlreadyAdded(item)"
-              [class.bg-primary/5]="isSelected(item)"
+              [class.bg-secondary]="isSelected(item)"
               (click)="toggleItem(item)">
               <!-- Checkbox -->
               <input type="checkbox"
                 [checked]="isSelected(item) || isAlreadyAdded(item)"
                 [disabled]="isAlreadyAdded(item)"
-                class="accent-primary w-4 h-4 shrink-0 pointer-events-none" />
+                class="w-4 h-4 shrink-0 pointer-events-none" />
               <!-- Thumbnail -->
               <div class="w-8 h-8 rounded overflow-hidden bg-muted shrink-0">
                 @if (getItemImageUrl(item)) {

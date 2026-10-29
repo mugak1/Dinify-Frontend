@@ -11,11 +11,12 @@
 #   2. lint                    (ng lint)
 #   3. release-contract gate   (release/ self-test + the refusal matrix)
 #   4. dependency-audit evaluator tests (OFFLINE — fixtures only; scans nothing)
-#   5. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
-#   6. test                    (ng test, headless single run)
-#   7. build:prod              (ng build --configuration=production)
-#   8. build the shipping candidate (the configuration publish.yml may promote)
-#   9. dependency audit        (NETWORK — scans the snapshotted inventory against the
+#   5. colour-roles gate       (brand red means act in the portal; self-test + scan)
+#   6. tenant-isolation gate   (focused tenant-boundary spec set, fail-fast)
+#   7. test                    (ng test, headless single run)
+#   8. build:prod              (ng build --configuration=production)
+#   9. build the shipping candidate (the configuration publish.yml may promote)
+#  10. dependency audit        (NETWORK — scans the snapshotted inventory against the
 #                               public advisory database; a scan that cannot complete
 #                               FAILS, it is never skipped. dependency-audit/README.md)
 #
@@ -60,6 +61,9 @@ run_step "lint"       npm run lint
 # simulation that executes publish.yml — so it runs early.
 run_step "release-contract gate" npm run test:release
 run_step "dependency-audit evaluator tests (offline)" npm run test:audit
+# Colour-roles source gate (COLOUR-ROLES-00, scripts/check-colour-roles.mjs): brand red
+# is the act colour only. Its own --self-test first, like the platform-role gate below.
+run_step "colour-roles gate" npm run check:colour-roles
 # Fail-fast boundary gate, two things in order: the platform-role source gate
 # (FE-AUTH-00, scripts/check-platform-roles.mjs — its own --self-test first, so a
 # matcher that stopped matching fails here rather than passing everything), then

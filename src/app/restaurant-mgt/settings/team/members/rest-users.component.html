@@ -31,7 +31,7 @@
         [value]="search"
         (input)="onSearch($any($event.target).value)"
         placeholder="Search staff by name"
-        class="w-full text-sm rounded-md border border-gray-300 bg-gray-50 pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-d-red focus:border-transparent"
+        class="w-full text-sm rounded-md border border-gray-300 bg-gray-50 pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
       />
     </div>
   </div>
@@ -84,7 +84,7 @@
             <button
               type="button"
               (click)="openDelete(u)"
-              class="text-gray-500 desktop-hover:text-d-red p-1.5 rounded"
+              class="text-gray-500 desktop-hover:bg-destructive/10 desktop-hover:text-destructive p-1.5 rounded"
               aria-label="Remove staff"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>

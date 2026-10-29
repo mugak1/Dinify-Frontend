@@ -20,7 +20,7 @@
         <!-- Name -->
         <div>
           <label for="r-name" class="block text-sm font-medium text-gray-700 mb-1">
-            Restaurant name <span class="text-primary">*</span>
+            Restaurant name <span class="text-destructive">*</span>
           </label>
           <input
             id="r-name"
@@ -63,11 +63,15 @@
                 type="button"
                 (click)="toggleCuisine(c)"
                 [attr.aria-pressed]="isCuisineSelected(c)"
-                class="rounded-full border px-3 py-1.5 text-sm transition-colors"
+                class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors"
                 [ngClass]="isCuisineSelected(c)
-                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                  ? 'border-selected bg-selected text-selected-foreground font-medium'
                   : 'border-gray-300 text-gray-600 desktop-hover:border-gray-400'"
               >
+                <!-- Multi-select, so the chosen chips carry a tick as well as the ink fill. -->
+                @if (isCuisineSelected(c)) {
+                  <svg aria-hidden="true" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                }
                 {{ c }}
               </button>
             }

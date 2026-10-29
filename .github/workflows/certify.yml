@@ -85,6 +85,9 @@ jobs:
       - name: Dependency-audit evaluator tests
         run: npm run test:audit
 
+      - name: Colour-roles gate
+        run: npm run check:colour-roles
+
       - name: Tenant-isolation closure gate
         run: npm run test:tenant-boundary
 

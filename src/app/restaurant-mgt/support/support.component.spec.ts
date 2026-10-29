@@ -143,7 +143,8 @@ describe('SupportComponent', () => {
   it('maps each status to a single source-of-truth label and badge variant', () => {
     configure();
     expect(component.statusMeta('open')).toEqual({ label: 'Open', variant: 'warning' });
-    expect(component.statusMeta('in_progress')).toEqual({ label: 'In progress', variant: 'default' });
+    // A neutral state: a grey outline, distinct from Closed's filled grey and never brand red.
+    expect(component.statusMeta('in_progress')).toEqual({ label: 'In progress', variant: 'outline' });
     expect(component.statusMeta('resolved')).toEqual({ label: 'Resolved', variant: 'success' });
     expect(component.statusMeta('closed')).toEqual({ label: 'Closed', variant: 'secondary' });
   });

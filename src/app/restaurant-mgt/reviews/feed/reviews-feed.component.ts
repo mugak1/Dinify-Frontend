@@ -8,6 +8,7 @@ import { CardComponent } from '../../../_shared/ui/card/card.component';
 import { PageHeaderComponent } from '../../../_shared/ui/page-header/page-header.component';
 import { CardErrorComponent } from '../../dashboard/components/card-error/card-error.component';
 import { BadgeComponent } from '../../../_shared/ui/badge/badge.component';
+import { DnSegItem, DnSegmentedComponent } from '../../../_shared/ui/segmented/segmented.component';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ReviewsService, ReviewFeedFilters } from '../services/reviews.service';
 import { ReviewListItem } from '../models/reviews.models';
@@ -27,7 +28,7 @@ type ResolutionFilter = 'open' | 'resolved' | null;
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-reviews-feed',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, CardComponent, CardErrorComponent, BadgeComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PageHeaderComponent, CardComponent, CardErrorComponent, BadgeComponent, DnSegmentedComponent],
   template: `
     <div class="space-y-4 sm:space-y-6">
       <!-- Header -->
@@ -50,111 +51,61 @@ type ResolutionFilter = 'open' | 'resolved' | null;
 
       <!-- Filter bar (always visible so the user can re-query) -->
       <div class="space-y-3 sm:space-y-4">
-        <!-- View: All reviews | Needs attention -->
-        <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
-          <button
-            type="button"
-            (click)="setView('all')"
-            class="px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-            [class.bg-primary/10]="view === 'all'"
-            [class.text-primary]="view === 'all'"
-            [class.text-muted-foreground]="view !== 'all'"
-          >
-            All reviews
-          </button>
-          <button
-            type="button"
-            (click)="setView('attention')"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors"
-            [class.bg-warning/10]="view === 'attention'"
-            [class.text-warning]="view === 'attention'"
-            [class.text-muted-foreground]="view !== 'attention'"
-          >
-            <svg
-              aria-hidden="true"
-              class="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-              <line x1="12" x2="12" y1="9" y2="13" />
-              <line x1="12" x2="12.01" y1="17" y2="17" />
-            </svg>
-            Needs attention
-          </button>
-        </div>
+        <!-- View: All reviews | Needs attention. Every pick is a SELECTED value, so all three
+             filters are the shared segmented control (ink), not hand-rolled pale-red copies. -->
+        <app-dn-segmented
+          layout="hug"
+          ariaLabel="View"
+          [items]="viewItems"
+          [value]="view"
+          (valueChange)="onViewValue($event)"
+        >
+          <!-- The amber icon keeps the warning on "Needs attention" without colouring the pick. -->
+          <ng-template #icon let-item>
+            @if (item.value === 'attention') {
+              <svg
+                aria-hidden="true"
+                class="w-4 h-4 text-warning shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                <line x1="12" x2="12" y1="9" y2="13" />
+                <line x1="12" x2="12.01" y1="17" y2="17" />
+              </svg>
+            }
+          </ng-template>
+        </app-dn-segmented>
 
         <!-- Secondary filters -->
         <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
           <!-- Rating -->
           <div class="flex items-center gap-2">
             <span class="text-xs font-medium text-muted-foreground">Rating</span>
-            <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
-              <button
-                type="button"
-                (click)="setRating(null)"
-                class="px-2.5 py-1 text-sm font-medium rounded-md transition-colors"
-                [class.bg-primary/10]="rating === null"
-                [class.text-primary]="rating === null"
-                [class.text-muted-foreground]="rating !== null"
-              >
-                All
-              </button>
-              @for (r of ratingOptions; track r) {
-                <button
-                  type="button"
-                  (click)="setRating(r)"
-                  class="px-2.5 py-1 text-sm font-medium rounded-md transition-colors tabular-nums"
-                  [class.bg-primary/10]="rating === r"
-                  [class.text-primary]="rating === r"
-                  [class.text-muted-foreground]="rating !== r"
-                >
-                  {{ r }}★
-                </button>
-              }
-            </div>
+            <app-dn-segmented
+              layout="hug"
+              ariaLabel="Rating"
+              [items]="ratingItems"
+              [value]="rating === null ? 'all' : '' + rating"
+              (valueChange)="onRatingValue($event)"
+            ></app-dn-segmented>
           </div>
 
           <!-- Resolution (pinned to Open in the needs-attention view, so hidden there) -->
           @if (view === 'all') {
             <div class="flex items-center gap-2">
               <span class="text-xs font-medium text-muted-foreground">Status</span>
-              <div class="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/60">
-                <button
-                  type="button"
-                  (click)="setResolution(null)"
-                  class="px-2.5 py-1 text-sm font-medium rounded-md transition-colors"
-                  [class.bg-primary/10]="resolution === null"
-                  [class.text-primary]="resolution === null"
-                  [class.text-muted-foreground]="resolution !== null"
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  (click)="setResolution('open')"
-                  class="px-2.5 py-1 text-sm font-medium rounded-md transition-colors"
-                  [class.bg-primary/10]="resolution === 'open'"
-                  [class.text-primary]="resolution === 'open'"
-                  [class.text-muted-foreground]="resolution !== 'open'"
-                >
-                  Open
-                </button>
-                <button
-                  type="button"
-                  (click)="setResolution('resolved')"
-                  class="px-2.5 py-1 text-sm font-medium rounded-md transition-colors"
-                  [class.bg-primary/10]="resolution === 'resolved'"
-                  [class.text-primary]="resolution === 'resolved'"
-                  [class.text-muted-foreground]="resolution !== 'resolved'"
-                >
-                  Resolved
-                </button>
-              </div>
+              <app-dn-segmented
+                layout="hug"
+                ariaLabel="Status"
+                [items]="resolutionItems"
+                [value]="resolution ?? 'all'"
+                (valueChange)="onResolutionValue($event)"
+              ></app-dn-segmented>
             </div>
           } @else {
             <p class="text-xs text-muted-foreground">Showing open, critical reviews.</p>
@@ -401,6 +352,23 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
 
   readonly stars = [1, 2, 3, 4, 5];
   readonly ratingOptions = [5, 4, 3, 2, 1];
+
+  // Segmented-control items. The control speaks strings, so `null` ("All") is 'all'
+  // and each rating is its digit; the on*Value handlers map back before calling the
+  // same setters the filters have always used.
+  readonly viewItems: DnSegItem[] = [
+    { value: 'all', label: 'All reviews' },
+    { value: 'attention', label: 'Needs attention' },
+  ];
+  readonly ratingItems: DnSegItem[] = [
+    { value: 'all', label: 'All' },
+    ...this.ratingOptions.map((r) => ({ value: String(r), label: `${r}★` })),
+  ];
+  readonly resolutionItems: DnSegItem[] = [
+    { value: 'all', label: 'All' },
+    { value: 'open', label: 'Open' },
+    { value: 'resolved', label: 'Resolved' },
+  ];
   readonly skeletonRows = [1, 2, 3, 4];
 
   /** Maps a stored quick-feedback tag key to its display label (humanizes
@@ -480,6 +448,24 @@ export class ReviewsFeedComponent implements OnInit, OnDestroy {
   }
 
   // --- Filter controls -----------------------------------------------------
+
+  onViewValue(value: string): void {
+    if (value === 'all' || value === 'attention') this.setView(value);
+  }
+
+  onRatingValue(value: string): void {
+    if (value === 'all') {
+      this.setRating(null);
+      return;
+    }
+    const rating = this.ratingOptions.find((r) => String(r) === value);
+    if (rating !== undefined) this.setRating(rating);
+  }
+
+  onResolutionValue(value: string): void {
+    if (value === 'all') this.setResolution(null);
+    else if (value === 'open' || value === 'resolved') this.setResolution(value);
+  }
 
   setView(view: FeedView): void {
     if (this.view === view) return;

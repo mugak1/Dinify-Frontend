@@ -95,9 +95,13 @@
           <button
             type="button"
             (click)="toggleTag(tag)"
+            [attr.aria-pressed]="tags.includes(tag)"
             class="cursor-pointer"
           >
             <app-dn-badge [variant]="tags.includes(tag) ? 'default' : 'outline'">
+              @if (tags.includes(tag)) {
+                <svg aria-hidden="true" class="h-3 w-3 mr-1 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              }
               {{ tag }}
             </app-dn-badge>
           </button>

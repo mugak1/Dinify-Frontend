@@ -61,7 +61,7 @@ import {
                 <h2 class="text-card-title text-foreground">Revenue (UGX)</h2>
                 <a
                   routerLink="/reports"
-                  class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-1 sm:hidden whitespace-nowrap"
+                  class="text-xs sm:text-sm text-foreground font-medium hover:underline flex items-center gap-1 sm:hidden whitespace-nowrap"
                 >
                   Sales
                   <svg aria-hidden="true" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -141,7 +141,7 @@ import {
             </div>
             <a
               routerLink="/reports"
-              class="hidden sm:flex text-sm text-primary hover:underline items-center gap-1 whitespace-nowrap shrink-0"
+              class="hidden sm:flex text-sm text-foreground font-medium hover:underline items-center gap-1 whitespace-nowrap shrink-0"
             >
               See Sales report
               <svg aria-hidden="true" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

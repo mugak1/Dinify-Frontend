@@ -113,8 +113,10 @@ export class RestaurantMgtComponent {
   logout(): void {
     const ref = this.dialog
       .openModal({
-        title: 'Logout',
-        message: 'Are you sure you want to <strong>Log out</strong> ?',
+        title: 'Log out of Dinify?',
+        message: 'You can sign back in at any time.',
+        tone: 'neutral',
+        submitButtonText: 'Log out',
       })
       .subscribe((x: any) => {
         if (x?.action === 'yes') {

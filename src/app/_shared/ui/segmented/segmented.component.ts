@@ -43,8 +43,8 @@ export type DnSegLayout = 'hug' | 'responsive' | 'fill';
 /**
  * The single soft-segmented "pick-one-from-a-group" control (supersedes the old dn-tabs and
  * the bespoke Reports rail). A white pill track (`bg-card` + hairline border) holds N segments and
- * one absolutely-positioned RED glider (`bg-primary`) that slides to the active segment; the active
- * segment's text/icon go `text-primary-foreground` (white on the red pill), inactive
+ * one absolutely-positioned INK glider (`bg-selected`) that slides to the active segment; the active
+ * segment's text/icon go `text-selected-foreground` (white on the ink pill), inactive
  * `text-foreground` (icons inherit via `currentColor`). Pure semantic tokens — no hex colours.
  * Inactive ink is deliberately full-strength `text-foreground`, NOT `text-muted-foreground`: at
  * `0 0% 38%` the unselected labels read as washed-out grey against the white track. Because that
@@ -166,7 +166,7 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
     'left 0.3s cubic-bezier(0.22, 1, 0.36, 1), width 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
 
   readonly gliderClass =
-    'pointer-events-none absolute top-[5px] bottom-[5px] z-0 rounded-[10px] bg-primary shadow-[var(--shadow-sm)]';
+    'pointer-events-none absolute top-[5px] bottom-[5px] z-0 rounded-[10px] bg-selected shadow-[var(--shadow-sm)]';
 
   readonly labelClass = 'truncate min-w-0 transition-colors';
 
@@ -259,7 +259,7 @@ export class DnSegmentedComponent implements OnChanges, AfterViewInit {
       'text-[13.5px] font-semibold no-underline select-none transition-colors',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       flex,
-      this.isActive(it) ? 'text-primary-foreground' : 'text-foreground',
+      this.isActive(it) ? 'text-selected-foreground' : 'text-foreground',
       it.disabled && 'opacity-50 pointer-events-none',
       // Error ink wins over the active/inactive colour (value mode, e.g. the item-form tabs).
       it.hasError && 'text-destructive',

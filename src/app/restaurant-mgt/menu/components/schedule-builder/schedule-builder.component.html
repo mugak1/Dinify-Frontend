@@ -28,8 +28,8 @@
               [title]="dayFullLabels[day]"
               class="w-8 h-8 rounded-full text-xs font-medium transition-colors border-2"
                 [ngClass]="{
-                  'bg-primary text-primary-foreground border-primary': schedule.days.includes(day),
-                  'bg-background text-muted-foreground border-border hover:border-primary/50': !schedule.days.includes(day)
+                  'bg-selected text-selected-foreground border-selected': schedule.days.includes(day),
+                  'bg-background text-muted-foreground border-border hover:border-neutral-400': !schedule.days.includes(day)
                 }"
               (click)="toggleDay(schedule.id, day)">
               {{ dayLabels[day] }}

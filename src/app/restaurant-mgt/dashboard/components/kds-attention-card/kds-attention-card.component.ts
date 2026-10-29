@@ -63,7 +63,7 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
               >
                 {{ statusConfig.label }}
               </span>
-              <a routerLink="/kitchen" target="_blank" rel="noopener" aria-label="Open Expo (opens in a new tab)" class="text-xs sm:text-sm text-primary hover:underline flex items-center gap-0.5 font-medium whitespace-nowrap">
+              <a routerLink="/kitchen" target="_blank" rel="noopener" aria-label="Open Expo (opens in a new tab)" class="text-xs sm:text-sm text-foreground hover:underline flex items-center gap-0.5 font-medium whitespace-nowrap">
                 <span class="hidden sm:inline">Open </span>Expo <span class="text-base sm:text-lg leading-none">›</span>
               </a>
             </div>
@@ -164,9 +164,9 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
               </svg>
               <span class="font-medium">Allergens: 3 active</span>
             </div>
-            <div class="px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-xs flex items-center gap-1.5">
+            <div class="px-3 py-1.5 bg-secondary border border-border rounded-full text-xs flex items-center gap-1.5">
               <!-- Zap icon -->
-              <svg aria-hidden="true" class="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg aria-hidden="true" class="w-3.5 h-3.5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
               <span class="font-medium">Expo: last action 18s ago</span>

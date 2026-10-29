@@ -98,8 +98,14 @@ export interface RestaurantRole {
   // carry it — see module-access.ts canAccess() for the migration cushion.
   permissions?: PermissionsMap
 }
+/** How the shared confirm dialog presents itself. 'warning' (the default) keeps the
+ *  triangle icon; 'destructive' is for an action that loses data (destructive button,
+ *  no icon); 'neutral' is an ordinary confirmation (primary button, no icon). */
+export type ConfirmDialogTone = 'warning' | 'destructive' | 'neutral';
+
 export interface ConfirmaDialogData {
   title?: string; //confirmation dialog title
+  tone?: ConfirmDialogTone;
   titleTooltip?: string; //tooltip for title if needed
   icon?: string; //dialog icon
   message?: string; // confirmation dialog subtitle

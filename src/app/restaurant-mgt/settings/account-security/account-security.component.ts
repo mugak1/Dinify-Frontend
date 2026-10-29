@@ -251,7 +251,7 @@ export class AccountSecurityComponent implements OnInit, HasUnsavedChanges {
       'placeholder:text-gray-400 focus:outline-none focus:ring-1 ' +
       (invalid
         ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
-        : 'border-gray-300 focus:border-primary focus:ring-primary')
+        : 'border-gray-300 focus:border-ring focus:ring-ring')
     );
   }
 
