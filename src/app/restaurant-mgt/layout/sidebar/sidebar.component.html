@@ -99,20 +99,6 @@ which owns the regime (layout/shell-layout.ts) — no breakpoint class lives her
       }
     </nav>
 
-    <!-- Account chip: pinned to the bottom (nav is flex-1), links to the account page -->
-    <a [routerLink]="'/account'"
-      routerLinkActive="bg-sidebar-accent text-sidebar-primary" ariaCurrentWhenActive="page"
-      class="relative flex items-center h-[64px] border-t border-sidebar-border transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-      [ngClass]="expanded ? 'gap-3 px-4' : 'justify-center px-2'"
-      [appTooltip]="!expanded ? (chipName || 'Account') : ''">
-      <app-dn-avatar size="sm" variant="brand" [name]="chipName"></app-dn-avatar>
-      <div class="flex flex-col min-w-0" [class.sr-only]="!expanded">
-        <span class="text-sm font-medium truncate">{{ chipName || 'Account' }}</span>
-        @if (chipRole) {
-          <span class="text-xs uppercase tracking-wide text-sidebar-foreground/60 truncate">{{ chipRole }}</span>
-        }
-      </div>
-    </a>
   </aside>
 
   <!-- Rail toggle: OUTSIDE aside, INSIDE the panel, shown from 1024 (the drawer

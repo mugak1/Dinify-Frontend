@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, ElementRef, Input, Output, EventEmi
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TooltipDirective } from '../../../_shared/ui/tooltip/tooltip.directive';
-import { AvatarComponent } from '../../../_shared/ui';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { ModuleKey } from '../../../_models/app.models';
 import { NO_MODULE_ROUTE } from '../../../_helpers/module-access';
@@ -12,7 +11,7 @@ import { EXPANDED_WIDTH_PX, RAIL_WIDTH_PX, ShellRegime } from '../shell-layout';
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, TooltipDirective, AvatarComponent],
+  imports: [CommonModule, RouterModule, TooltipDirective],
   templateUrl: './sidebar.component.html',
   styles: [`:host { display: contents; }`]
 })
@@ -80,15 +79,5 @@ export class SidebarComponent {
    */
   get noModuleUser(): boolean {
     return this.auth.firstAccessibleRoute() === NO_MODULE_ROUTE;
-  }
-
-  get chipName(): string {
-    const p = this.auth.userValue?.profile;
-    if (!p) return '';
-    return `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
-  }
-
-  get chipRole(): string {
-    return this.auth.currentRestaurantRole?.roles?.[0] ?? '';
   }
 }
