@@ -49,6 +49,8 @@ export class RestNotificationsComponent implements OnInit, OnDestroy {
   markingAll = false;
 
   private loadSub: Subscription | null = null;
+  /** Moves whenever an answer settles every row at once (a bulk read, a load). */
+  private readEpoch = 0;
   private views = new Map<string, InboxRowView>();
 
   constructor(
@@ -87,6 +89,7 @@ export class RestNotificationsComponent implements OnInit, OnDestroy {
             this.state = 'error';
             return;
           }
+          this.readEpoch++;
           this.items = page.items;
           this.unreadCount = page.unread;
           this.views = new Map(page.items.map((n) => [n.id, describeNotification(n)]));
@@ -116,10 +119,15 @@ export class RestNotificationsComponent implements OnInit, OnDestroy {
     if (n.read) return;
     n.read = true;
     this.adjustUnread(-1);
+    const epoch = this.readEpoch;
     this.api.postPatch(readOnePath(n.id), {}, 'post').subscribe({
       next: () => this.inbox.refresh(),
       error: () => {
-        // The interceptor reports it; put the row back so it is not lost.
+        // The interceptor reports it; put the row back so it is not lost. Not
+        // when a newer answer has settled the rows since (a bulk read or a
+        // reload): this failure is then stale, and undoing it would mark
+        // unread a row the server has already marked read.
+        if (epoch !== this.readEpoch) return;
         n.read = false;
         this.adjustUnread(+1);
       },
@@ -133,6 +141,7 @@ export class RestNotificationsComponent implements OnInit, OnDestroy {
     this.api.postPatch(READ_ALL_PATH, {}, 'post', undefined, { restaurant }).subscribe({
       next: () => {
         this.markingAll = false;
+        this.readEpoch++;
         this.items.forEach((n) => (n.read = true));
         this.unreadCount = 0;
         this.inbox.setCount(0);

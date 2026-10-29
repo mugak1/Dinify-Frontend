@@ -202,6 +202,37 @@ describe('RestNotificationsComponent (the in-app inbox)', () => {
       expect(inbox.unreadCount()).toBe(1);
     });
 
+    it('a read that fails after "Mark all as read" succeeded does not undo the bulk read (Codex P2 on #792)', () => {
+      load([row({ id: 'a' }), row({ id: 'b' })], 2);
+      component.open(component.items[0]);
+      const single = http.expectOne((r) => r.method === 'POST' && r.url.endsWith(readOnePath('a')));
+      // The operator presses "Mark all as read" while that read is in flight,
+      // and the bulk answer arrives first.
+      el('mark-all-read')!.click();
+      http.expectOne((r) => r.method === 'POST' && r.url.includes(READ_ALL_PATH))
+        .flush({ status: 200, message: 'Marked all as read', data: { marked: 2 } });
+      http.expectOne((r) => r.url.includes(UNREAD_COUNT_PATH)).flush({ status: 200, data: { unread_count: 0 } });
+      single.flush({ message: 'Server error' }, { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+      expect(component.items.every((n) => n.read)).toBeTrue();
+      expect(component.unreadCount).toBe(0);
+      expect(inbox.unreadCount()).toBe(0);
+      expect(el('mark-all-read')).toBeNull();
+    });
+
+    it('CONTROL: when "Mark all as read" fails, a failed read is still put back', () => {
+      load([row({ id: 'a' }), row({ id: 'b' })], 2);
+      component.open(component.items[0]);
+      const single = http.expectOne((r) => r.method === 'POST' && r.url.endsWith(readOnePath('a')));
+      el('mark-all-read')!.click();
+      http.expectOne((r) => r.method === 'POST' && r.url.includes(READ_ALL_PATH))
+        .flush({ message: 'Server error' }, { status: 500, statusText: 'Server Error' });
+      single.flush({ message: 'Server error' }, { status: 500, statusText: 'Server Error' });
+      expect(component.items[0].read).toBeFalse();
+      expect(component.unreadCount).toBe(2);
+      expect(inbox.unreadCount()).toBe(2);
+    });
+
     it('an already-read row sends nothing', () => {
       load([row({ id: 'a', read: true })], 0);
       component.open(component.items[0]);
