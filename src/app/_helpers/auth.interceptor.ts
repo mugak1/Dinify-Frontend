@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { EMPTY, Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { AuthenticationService } from '../_services/authentication.service';
@@ -15,6 +15,16 @@ export class AuthInterceptor implements HttpInterceptor {
        // console.log(user)
         const isLoggedIn = user?.token;
         const isApiUrl = request.url.startsWith(environment.apiUrl);
+        // A RETIRED document sends no staff request (SHELL-FINISH-00, PR 3). Its
+        // selected restaurant or its principal moved under it in another tab, or it
+        // is switching restaurant and about to reload. Anything it sent now would
+        // carry the NEW restaurant's id (read from storage per request) with the OLD
+        // page's data — a blur autosave firing as the reload notice takes focus is
+        // the worked example. It completes without a value or an error, so nothing
+        // toasts and nothing retries; the page is about to be replaced.
+        if (isLoggedIn && isApiUrl && this.authenticationService.isRetired) {
+            return EMPTY;
+        }
         if (isLoggedIn && isApiUrl) {
             request = request.clone({
                 setHeaders: {

@@ -61,6 +61,7 @@ The consolidated cross-cutting matrix + parity lives in
 | F8 | Rotation is single-request-guarded (one confirm → one request; rapid clicks cannot double-rotate); success swaps in the server credential; failure preserves the old credential; the rotation response is strictly parsed (never locally fabricated); ordinary edits never emit rotation metadata; Generate-Missing never rotates active tables | `tables/components/tables-setup-view/*.spec.ts`; `tables/services/tables.service.spec.ts` |
 | F9 | Post-login scope reads the login-SELECTED membership (`AuthenticationService.currentRestaurantRole`, backed by `rest_role`), never a silent `restaurant_roles[0]` fallback | `_security/tenant-isolation-closure.spec.ts` §E; `kitchen/services/kitchen-order.service.spec.ts`, `kitchen-stock.service.spec.ts`; `restaurant-mgt/menu/menu.component.spec.ts` |
 | F10 | Cross-repo contract constants (header names, scan route, session-gated routes, 400 expiry + 404 denied messages, QR URL shape) match the backend | `_security/tenant-isolation-closure.spec.ts` §14 |
+| F11 | Changing the selected restaurant (the venue switcher, or another tab's switch / sign-out / sign-in seen by the portal shell) never lets this document act for the old scope: the switch takes the membership FROM a freshly read canonical profile (by identity) and refuses one it no longer holds; it writes only `profile` onto the STORED session, refusing when the stored or fresh principal differs; staff requests stop synchronously (`retire()` → `AuthInterceptor` sends nothing) before any write or notice; restaurant-scoped `[dinify]` keys and `current_resta` are cleared; the reload is `location.replace` to a path from the one landing rule; the cross-tab guard is keyed on the (restaurant id, profile id) pair and lives in the portal shell, not the kitchen board | `_services/restaurant-switch.authentication.spec.ts`; `restaurant-mgt/layout/restaurant-switch.service.spec.ts`; `restaurant-mgt/layout/restaurant-landing.spec.ts`; `restaurant-mgt/restaurant-mgt.cross-tab.spec.ts` |
 
 ## CI command (the closure gate)
 
@@ -86,6 +87,21 @@ membership picked at login). `restaurant_roles[0]` remains **only** the
 single-membership auto-select convenience in `login.component.ts` (guarded by
 `length === 1`) — it is never used as post-login authorization/scope, so it is
 NOT globally banned.
+
+**Changing the selection after login (SHELL-FINISH-00).** The venue switcher in
+the top bar is the one in-app way to change it. It re-reads `GET
+users/user-profile/`, takes the membership out of THAT profile (never the copy
+captured at sign-in, and never a hand-built object, since only the backend can
+resolve a `permissions` map), and refuses a restaurant the fresh profile no longer
+lists. `AuthenticationService.switchRestaurantAndReload` then stops this
+document's staff requests, writes only `profile` onto the session as STORED (so a
+refresh token another tab has rotated is not overwritten), sets `rest_role`,
+clears the restaurant-scoped navigation state and reloads with `location.replace`.
+Every `providedIn: 'root'` service still holds the old restaurant's data in
+memory, and only the page load clears it. The portal shell also watches `storage`
+events for a change of the (restaurant id, profile id) pair made in another tab,
+stops its requests at once and reloads the same way. The kitchen board is outside
+the shell and keeps following `rest_role` as before.
 
 ## QR lifecycle
 
@@ -117,7 +133,8 @@ Re-run this audit when any of these change: the diner capability transport
 the `?c=` capture/scrub in the diner shell; the QR URL builder or the rotation
 flow (`qr-print-sheet`, `tables.service` rotation, the setup-view rotation
 guard); the order-request builders (basket-body); the public menu fetch; the
-`AuthInterceptor` / selected-restaurant scoping; or the cross-repo contract
+`AuthInterceptor` / selected-restaurant scoping (including the venue switcher
+and the shell's cross-tab guard); or the cross-repo contract
 constants.
 
 ## UAT adversarial smoke (dedicated UAT fixtures — no real customer data)

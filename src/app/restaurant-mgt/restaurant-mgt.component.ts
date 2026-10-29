@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, OnDestroy, ViewChild, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, ViewChild, inject } from '@angular/core';
 import { DOCUMENT, NgClass } from '@angular/common';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ApiService } from '../_services/api.service';
@@ -11,6 +11,7 @@ import { SidebarComponent } from './layout/sidebar/sidebar.component';
 import { TopNavComponent } from './layout/top-nav/top-nav.component';
 import { OfflineBannerComponent } from '../_shared/ui';
 import { SessionActionsService } from './layout/session-actions.service';
+import { landingPathFor } from './layout/restaurant-landing';
 import { EXPANDED_WIDTH_PX, RAIL_WIDTH_PX, ShellRegime, regimeForWidth } from './layout/shell-layout';
 
 // The SAVED rail preference: expanded (true) or collapsed (false) in the
@@ -28,6 +29,21 @@ import { EXPANDED_WIDTH_PX, RAIL_WIDTH_PX, ShellRegime, regimeForWidth } from '.
 // never-persisted states.
 const SIDEBAR_STATE_KEY = 'sidebar.expanded';
 
+/** How long the cross-tab notice shows before the reload (staff requests are already stopped). */
+export const CROSS_TAB_NOTICE_MS = 1200;
+
+/** `restaurant id : profile id`, as stored right now (see onStorage). */
+function storedScope(): string {
+  const read = (key: string): any => {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? 'null');
+    } catch {
+      return null;
+    }
+  };
+  return `${read('rest_role')?.restaurant_id ?? ''}:${read('user')?.profile?.id ?? ''}`;
+}
+
 @Component({
     changeDetection: ChangeDetectionStrategy.Eager,
     selector: 'app-restaurant-mgt',
@@ -43,6 +59,19 @@ export class RestaurantMgtComponent implements OnDestroy {
 
   @ViewChild(SidebarComponent) private sidebar?: SidebarComponent;
   @ViewChild(TopNavComponent) private topNav?: TopNavComponent;
+
+  /**
+   * CROSS-TAB GUARD (SHELL-FINISH-00, PR 3). The scope this document acts for:
+   * `restaurant id : profile id`, the same pair the kitchen board uses
+   * (`KitchenOrderService.currentScope`). Read from STORAGE, because storage is
+   * what another tab changes. A token renewal elsewhere rewrites `user` with the
+   * same pair and is ignored; a venue switch, a sign-out or a different user
+   * signing in changes the pair.
+   */
+  private readonly scopeAtLoad = storedScope();
+  /** Another tab moved this document's scope; the reload notice is showing. */
+  leavingFor: { kind: 'switched' | 'other-user' | 'signed-out'; restaurant: string | null } | null = null;
+  @ViewChild('leavingNotice') private leavingNotice?: ElementRef<HTMLElement>;
 
   /** The width regime, from the one source (`layout/shell-layout.ts`). */
   regime: ShellRegime;
@@ -140,6 +169,45 @@ export class RestaurantMgtComponent implements OnDestroy {
     this.drawerOpen = false;
     this.railOverlayOpen = false;
     this.syncScrollLock();
+  }
+
+  /**
+   * Another tab changed the selected restaurant or the principal. This tab must
+   * stop acting for the previous one at once and reload:
+   *
+   *  1. FIRST, synchronously, stop every staff request (`auth.retire()`). The
+   *     notice below takes focus, and a focused field that saves on blur (the
+   *     Upsells title) would otherwise send the OLD page's data under the NEW
+   *     restaurant's id, because the API layer reads `rest_role` per request.
+   *  2. Then show a brief notice, and reload with `location.replace` through the
+   *     same landing rule the switcher uses, never a plain reload of this URL:
+   *     the URL can carry ids that belong to the old restaurant.
+   *
+   * It lives in the PORTAL SHELL on purpose: the kitchen board (`/kitchen`) is
+   * outside it and already follows `rest_role` by design, and reloading it could
+   * disarm its sound.
+   */
+  @HostListener('window:storage', ['$event'])
+  onStorage(event: StorageEvent): void {
+    if (this.leavingFor) return;
+    if (event.storageArea && event.storageArea !== window.localStorage) return;
+    if (event.key !== null && event.key !== 'rest_role' && event.key !== 'user') return;
+    if (storedScope() === this.scopeAtLoad) return;
+    this.auth.retire();
+    const now = storedScope();
+    const [, profileNow] = now.split(':');
+    const [, profileAtLoad] = this.scopeAtLoad.split(':');
+    const role = this.auth.currentRestaurantRole;
+    this.leavingFor = {
+      kind: !profileNow || !role ? 'signed-out' : profileNow !== profileAtLoad ? 'other-user' : 'switched',
+      restaurant: role?.restaurant ?? null,
+    };
+    this.closeOverlays();
+    this.cdr.detectChanges();
+    this.leavingNotice?.nativeElement.focus();
+    setTimeout(() => {
+      this.auth.retireAndReload(landingPathFor(this.router.url, this.auth.currentRestaurantRole));
+    }, CROSS_TAB_NOTICE_MS);
   }
 
   /** Esc closes an open overlay and returns focus to the control that opened it. */

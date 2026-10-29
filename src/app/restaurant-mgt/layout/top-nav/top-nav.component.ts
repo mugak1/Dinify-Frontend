@@ -5,6 +5,8 @@ import { AuthenticationService } from '../../../_services/authentication.service
 import { AvatarComponent, DN_MENU } from '../../../_shared/ui';
 import { roleLabel } from '../../settings/team/members/staff-roles';
 import { SessionActionsService } from '../session-actions.service';
+import { RestaurantSwitchService } from '../restaurant-switch.service';
+import { RestaurantRole } from '../../../_models/app.models';
 
 // The dashboard date-range pills used to live here, gated on a
 // `DashboardService.isDashboardActive$` flag that existed for no other reason. They moved
@@ -31,7 +33,33 @@ export class TopNavComponent {
   constructor(
     private auth: AuthenticationService,
     private sessionActions: SessionActionsService,
+    private switcher: RestaurantSwitchService,
   ) {}
+
+  /** The switch's inline error, and whether a switch is under way. */
+  get switchError() { return this.switcher.error; }
+  get switching() { return this.switcher.switching; }
+
+  get memberships(): RestaurantRole[] {
+    return this.switcher.memberships();
+  }
+
+  /** One membership shows the plain name and no switcher control. */
+  get canSwitch(): boolean {
+    return this.memberships.length > 1;
+  }
+
+  get currentRestaurantId(): string | null {
+    return this.switcher.currentRestaurantId();
+  }
+
+  roleOf(m: RestaurantRole): string {
+    return roleLabel(m?.roles?.[0]);
+  }
+
+  switchTo(m: RestaurantRole): void {
+    this.switcher.requestSwitch(m);
+  }
 
   /**
    * The current restaurant's name, surfaced in the chrome so a multi-venue

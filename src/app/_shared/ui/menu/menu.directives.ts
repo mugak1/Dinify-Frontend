@@ -1,5 +1,5 @@
 import { Directive, ElementRef, inject } from '@angular/core';
-import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
+import { CdkMenu, CdkMenuItem, CdkMenuItemRadio, CdkMenuTrigger } from '@angular/cdk/menu';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 
 /**
@@ -108,5 +108,27 @@ export class DnMenuDirective {}
 })
 export class DnMenuItemDirective {}
 
+/**
+ * A single-choice row (`role="menuitemradio"` + `aria-checked`), for a menu that
+ * picks one of several — the venue switcher. Same styling as `appDnMenuItem`.
+ * The checked row is marked by the CALLER's check glyph and by `aria-checked`,
+ * never by a brand-red fill: chosen is ink, not act (COLOUR-ROLES-00).
+ */
+@Directive({
+  selector: '[appDnMenuItemRadio]',
+  standalone: true,
+  hostDirectives: [
+    {
+      directive: CdkMenuItemRadio,
+      inputs: ['cdkMenuItemChecked: appDnMenuItemChecked', 'cdkMenuItemDisabled: appDnMenuItemDisabled'],
+      outputs: ['cdkMenuItemTriggered: appDnMenuItemTriggered'],
+    },
+  ],
+  host: {
+    class: 'flex w-full items-center gap-3 min-h-[44px] px-3 text-left text-sm text-foreground no-underline cursor-pointer outline-none hover:bg-accent focus:bg-accent focus-visible:bg-accent disabled:opacity-50 disabled:cursor-not-allowed',
+  },
+})
+export class DnMenuItemRadioDirective {}
+
 /** Import this in a standalone component's `imports` to use the menu. */
-export const DN_MENU = [DnMenuTriggerDirective, DnMenuDirective, DnMenuItemDirective] as const;
+export const DN_MENU = [DnMenuTriggerDirective, DnMenuDirective, DnMenuItemDirective, DnMenuItemRadioDirective] as const;

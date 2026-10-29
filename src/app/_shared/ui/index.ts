@@ -24,4 +24,4 @@ export {
 export { ExtrasSelectorComponent, ExtraOption } from './extras-selector/extras-selector.component';
 export { PageHeaderComponent } from './page-header/page-header.component';
 export { NoBaselineChipComponent } from './no-baseline-chip/no-baseline-chip.component';
-export { DnMenuTriggerDirective, DnMenuDirective, DnMenuItemDirective, DN_MENU, DN_MENU_POSITIONS } from './menu/menu.directives';
+export { DnMenuTriggerDirective, DnMenuDirective, DnMenuItemDirective, DnMenuItemRadioDirective, DN_MENU, DN_MENU_POSITIONS } from './menu/menu.directives';

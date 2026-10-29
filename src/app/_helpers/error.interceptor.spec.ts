@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { HTTP_INTERCEPTORS, HttpClient, HttpErrorResponse, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClient, HttpContext, HttpErrorResponse, provideHttpClient, withInterceptorsFromDi, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {
-  ErrorInterceptor, SESSION_CHANGED_MESSAGE, SESSION_EXPIRED, SESSION_UNCONFIRMED_MESSAGE,
+  ErrorInterceptor, SESSION_CHANGED_MESSAGE, SESSION_EXPIRED, SESSION_UNCONFIRMED_MESSAGE, SILENT_FAILURE,
 } from './error.interceptor';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
@@ -859,6 +859,61 @@ describe('ErrorInterceptor', () => {
       httpMock.expectOne(url).flush(
         { message: 'boom' }, { status: 409, statusText: 'Conflict' });
       expect(typeof caught).toBe('string');
+    });
+  });
+  // SHELL-FINISH-00: a caller that reports a failure itself opts the request out
+  // of the interceptor's toasts. It is honoured in EVERY toasting branch, and it
+  // changes nothing else: the same value is still thrown.
+  describe('SILENT_FAILURE', () => {
+    const silent = () => ({ context: new HttpContext().set(SILENT_FAILURE, true) });
+    const noToast = () => {
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(toast.info).not.toHaveBeenCalled();
+    };
+
+    it('defaults to false: an ordinary request still toasts (control)', (done) => {
+      setUser(mockUser);
+      httpClient.get('/api/test').subscribe({ error: () => { expect(toast.error).toHaveBeenCalled(); done(); } });
+      httpMock.expectOne('/api/test').flush({ message: 'Server error' }, { status: 500, statusText: 'Internal Server Error' });
+    });
+
+    it('status 0: no offline toast, still throws "no network"', (done) => {
+      routerStub.url = '/login';
+      httpClient.get('/api/test', silent()).subscribe({ error: (err) => { expect(err).toBe('no network'); noToast(); done(); } });
+      httpMock.expectOne('/api/test').error(new ProgressEvent('error'), { status: 0, statusText: 'Unknown Error' });
+    });
+
+    it('429: no warning, still throws rate_limited', (done) => {
+      httpClient.get('/api/test', silent()).subscribe({ error: (err) => { expect(err).toBe('rate_limited'); noToast(); done(); } });
+      httpMock.expectOne('/api/test').flush({}, { status: 429, statusText: 'Too Many Requests' });
+    });
+
+    it('authenticated 403: no toast, still throws the denial', (done) => {
+      setUser(mockUser);
+      httpClient.get('/api/test', silent()).subscribe({ error: (err) => {
+        expect(err).toBe('You cannot access this'); noToast(); expect(authService.logout).not.toHaveBeenCalled(); done();
+      } });
+      httpMock.expectOne('/api/test').flush({ message: 'You cannot access this' }, { status: 403, statusText: 'Forbidden' });
+    });
+
+    it('5xx (the generic message toast): no toast, still throws the message', (done) => {
+      setUser(mockUser);
+      httpClient.get('/api/test', silent()).subscribe({ error: (err) => { expect(err).toBe('Server error'); noToast(); done(); } });
+      httpMock.expectOne('/api/test').flush({ message: 'Server error' }, { status: 500, statusText: 'Internal Server Error' });
+    });
+
+    it('a 401 whose renewal could not be confirmed: no toast, still throws, session kept', (done) => {
+      setUser(mockUser);
+      authService.captureRequestOwner.and.returnValue({ session: 1, context: 1, restaurantId: 'r1', token: 'test-token' } as any);
+      authService.ownerIsCurrent.and.returnValue(true);
+      authService.currentAccessToken.and.returnValue('test-token');
+      authService.renewSession.and.returnValue(of({ kind: 'unavailable', cause: 'server' } as const));
+      httpClient.get('/api/test', silent()).subscribe({ error: (err) => {
+        expect(err).toBe(SESSION_UNCONFIRMED_MESSAGE); noToast(); expect(authService.endOwnedSession).not.toHaveBeenCalled(); done();
+      } });
+      httpMock.expectOne('/api/test').flush(
+        { detail: 'Given token not valid for any token type', code: 'token_not_valid' }, { status: 401, statusText: 'Unauthorized' });
     });
   });
 });

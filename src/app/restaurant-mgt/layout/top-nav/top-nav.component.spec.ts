@@ -4,6 +4,8 @@ import { TopNavComponent } from './top-nav.component';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { AuthenticationService } from '../../../_services/authentication.service';
 import { SessionActionsService } from '../session-actions.service';
+import { RestaurantSwitchService } from '../restaurant-switch.service';
+import { signal } from '@angular/core';
 
 describe('TopNavComponent', () => {
   let fixture: ComponentFixture<TopNavComponent>;
@@ -16,6 +18,15 @@ describe('TopNavComponent', () => {
     userValue: { profile: { first_name: string; last_name: string } } | null;
   };
   let confirmSignOut: jasmine.Spy;
+  // The switcher's surface, stubbed: what the top bar renders from it.
+  let switcher: {
+    error: ReturnType<typeof signal<string | null>>;
+    switching: ReturnType<typeof signal<boolean>>;
+    list: any[];
+    memberships: () => any[];
+    currentRestaurantId: () => string | null;
+    requestSwitch: jasmine.Spy;
+  };
 
   beforeEach(async () => {
     auth = {
@@ -24,6 +35,14 @@ describe('TopNavComponent', () => {
       userValue: { profile: { first_name: 'Ada', last_name: 'Okello' } },
     };
     confirmSignOut = jasmine.createSpy('confirmSignOut');
+    switcher = {
+      error: signal<string | null>(null),
+      switching: signal(false),
+      list: [{ restaurant_id: 'r1', restaurant: 'Test Bistro', roles: ['kitchen'] }],
+      memberships: () => switcher.list,
+      currentRestaurantId: () => 'r1',
+      requestSwitch: jasmine.createSpy('requestSwitch'),
+    };
 
     await TestBed.configureTestingModule({
       imports: [TopNavComponent],
@@ -34,6 +53,7 @@ describe('TopNavComponent', () => {
         // necessary again, something re-coupled the global chrome to one page's state.
         { provide: AuthenticationService, useValue: auth },
         { provide: SessionActionsService, useValue: { confirmSignOut } },
+        { provide: RestaurantSwitchService, useValue: switcher },
       ],
     }).compileComponents();
 
@@ -113,6 +133,65 @@ describe('TopNavComponent', () => {
       (overlay().querySelector('[data-testid="menu-sign-out"]') as HTMLElement).click();
       fixture.detectChanges();
       expect(confirmSignOut).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('venue switcher (SHELL-FINISH-00 PR 3)', () => {
+    const q = (id: string) => fixture.nativeElement.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+    const overlay = () => TestBed.inject(OverlayContainer).getContainerElement();
+    const two = [
+      { restaurant_id: 'r1', restaurant: 'Test Bistro', roles: ['owner'] },
+      { restaurant_id: 'r2', restaurant: 'Cafe Javas', roles: ['kitchen'] },
+    ];
+
+    it('one membership shows the plain name and NO switcher control', () => {
+      expect(q('venue-switcher-trigger')).toBeNull();
+      expect(q('venue-name')!.textContent!.trim()).toBe('Test Bistro');
+      expect(fixture.nativeElement.querySelector('[aria-haspopup="menu"][data-testid^="venue"]')).toBeNull();
+    });
+
+    it('two or more memberships turn the name into the switcher trigger', async () => {
+      switcher.list = two;
+      fixture.detectChanges();
+      const trigger = q('venue-switcher-trigger') as HTMLButtonElement;
+      expect(trigger).not.toBeNull();
+      expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+      expect(trigger.getAttribute('aria-label')).toBe('Restaurant: Test Bistro. Switch restaurant');
+      expect(trigger.getBoundingClientRect().height).withContext('44px touch target').toBe(44);
+
+      trigger.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const options = Array.from(overlay().querySelectorAll<HTMLElement>('[data-testid="venue-option"]'));
+      expect(options.map(o => o.getAttribute('role'))).toEqual(['menuitemradio', 'menuitemradio']);
+      expect(options.map(o => o.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+      expect(options[1].textContent).toContain('Cafe Javas');
+      expect(options[1].textContent).toContain('Chef');
+      // Chosen is ink, not act: no brand red on the checked row.
+      expect(options[0].className).not.toMatch(/\b(bg|text)-(primary|d-red)\b/);
+
+      options[1].click();
+      fixture.detectChanges();
+      expect(switcher.requestSwitch).toHaveBeenCalledOnceWith(two[1]);
+    });
+
+    it('shows the inline error from a failed switch, as an alert in danger ink', () => {
+      switcher.error.set("Couldn't switch restaurants right now. Check your connection and try again.");
+      fixture.detectChanges();
+      const err = q('venue-switch-error')!;
+      expect(err.getAttribute('role')).toBe('alert');
+      expect(err.className).toContain('text-destructive');
+      expect(err.textContent).toContain("Couldn't switch restaurants");
+    });
+
+    it('the trigger is disabled while a switch is under way', () => {
+      switcher.list = two;
+      switcher.switching.set(true);
+      fixture.detectChanges();
+      const trigger = q('venue-switcher-trigger') as HTMLButtonElement;
+      expect(trigger.disabled).toBeTrue();
+      expect(trigger.getAttribute('aria-busy')).toBe('true');
     });
   });
 

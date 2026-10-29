@@ -3060,6 +3060,60 @@ so keep it current when conventions change.
   Pinned by `menu.directives.spec.ts`, `session-actions.service.spec.ts`,
   `top-nav.component.spec.ts`, `account.component.spec.ts` and
   `sidebar.component.spec.ts`
+- **THE TOP BAR SWITCHES RESTAURANT, AND EVERY TAB FOLLOWS BY RELOADING (SHELL-FINISH-00, PR 3).**
+  ✅ With more than one membership, the venue name in the top bar is the switcher's
+  trigger: a menu of single-choice rows (`appDnMenuItemRadio`), each with its role
+  through `roleLabel()`. With one membership it stays plain text and there is no
+  control.
+
+  **ONE SWITCH, AND IT RELOADS.** `restaurant-mgt/layout/restaurant-switch.service.ts`
+  asks once ("Other Dinify tabs in this browser, including an open kitchen board,
+  will switch too"; destructive "Discard and switch" when the routed page is dirty),
+  then re-reads `GET users/user-profile/` with `SILENT_FAILURE` and takes the
+  membership OUT OF THAT PROFILE, by identity. A restaurant the fresh profile no
+  longer lists, or a failed read, gives an inline error under the name and changes
+  nothing. `AuthenticationService.switchRestaurantAndReload` then:
+  1. stops staff requests (`retire()`: `AuthInterceptor` returns `EMPTY` for every
+     API request and the session generation moves, so no renewal or 401 replay acts);
+  2. reads the STORED `user`, and if its profile id, this document's and the fresh
+     profile's are not all the same, writes nothing and answers
+     `'principal-changed'` (the caller reloads into what is stored);
+  3. otherwise replaces only `profile` (the stored tokens are kept, because another
+     tab may have rotated the refresh token), sets `rest_role`, removes
+     `current_resta` and clears the `[dinify]` keys except `menu.sortMode:` and
+     `sidebar.expanded`;
+  4. LAST, `location.replace` to the landing path. A soft navigation would leave
+     every root service holding the old restaurant's data.
+
+  **ONE LANDING RULE** (`layout/restaurant-landing.ts`, `landingPathFor`): the same
+  top-level page if the new membership can open it, otherwise its first accessible
+  route; Support, My account and Notifications are always kept; deeper paths and
+  query strings are dropped (they carry restaurant-specific ids); no membership
+  lands on `/login`.
+
+  **THE CROSS-TAB GUARD IS IN THE PORTAL SHELL.** `RestaurantMgtComponent` listens
+  for `storage` events on `rest_role` / `user` and compares the (restaurant id,
+  profile id) pair with the one it loaded with, the same pair the kitchen board's
+  `currentScope()` uses, so a token renewal elsewhere is ignored. On a change it
+  calls `retire()` FIRST, synchronously, then shows a short notice ("Switched to X
+  in another tab", "Someone else signed in…", "Signed out in another tab") and after
+  `CROSS_TAB_NOTICE_MS` reloads by the same landing rule. Retiring first matters: a
+  field that saves on blur would otherwise send the old page's data under the new
+  restaurant's id as the notice takes focus. The kitchen board is outside the shell
+  and keeps following `rest_role` by design.
+
+  **`SILENT_FAILURE`** (`_helpers/error.interceptor.ts`, an `HttpContextToken`) lets
+  a caller that reports a failure itself opt a request out of the interceptor's
+  toasts, in every toasting branch (status 0, 429, an authenticated 403, a renewal
+  that could not be confirmed, the generic message toast). It changes nothing else:
+  the same value is thrown and 401 recovery runs. `ApiService.get` takes an optional
+  `HttpContext` to carry it. Prefer it to another per-URL carve-out.
+
+  Pinned by `restaurant-switch.authentication.spec.ts`,
+  `restaurant-switch.service.spec.ts`, `restaurant-landing.spec.ts`,
+  `restaurant-mgt.cross-tab.spec.ts` (all four in `test:tenant-boundary`; see F11 in
+  `docs/TENANT_ISOLATION_CLOSURE.md`), `error.interceptor.spec.ts`,
+  `top-nav.component.spec.ts` and `menu.directives.spec.ts`
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
   persistent `OfflineBannerComponent` in the restaurant portal shell (its only
   host now that the admin plane has left) and an `OfflineStripComponent` in the
@@ -4057,7 +4111,8 @@ directive (`[appBodyPortal]`: renders its host under `<body>`, for a viewport
 overlay whose ancestor would clip it in Safari; see DINER-OVERLAY-PORTAL-00), the
 `SafeArrayPipe`, the `HighlightPipe` (search-term highlighting), and the MENU
 primitive (`menu/menu.directives.ts`: `[appDnMenuTriggerFor]`, `[appDnMenu]`,
-`[appDnMenuItem]`, imported together as `DN_MENU`). The menu primitive is the
+`[appDnMenuItem]`, `[appDnMenuItemRadio]` for a single-choice row, imported together
+as `DN_MENU`). The menu primitive is the
 CDK menu (`@angular/cdk/menu`) composed as host directives with the house styling.
 That gives arrow keys, Home/End, Esc, close on outside click, focus return,
 `aria-haspopup`/`aria-expanded`, 44px rows, and rendering under `<body>` in the
