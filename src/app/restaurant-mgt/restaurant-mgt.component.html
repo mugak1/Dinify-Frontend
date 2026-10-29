@@ -17,14 +17,15 @@
       [showMenuButton]="regime === 'drawer'"
       [menuExpanded]="drawerOpen"
       (menuClick)="onMenuButton()"
-      (logoutClick)="logout()"
     ></app-top-nav>
     <main
       class="flex-1 min-h-0"
       [ngClass]="isMenuRoute
         ? 'overflow-hidden flex flex-col bg-background'
         : 'overflow-y-auto p-3 sm:p-4 md:p-6'">
-      <router-outlet></router-outlet>
+      <router-outlet
+        (activate)="sessionActions.trackRoutedPage($event)"
+        (deactivate)="sessionActions.trackRoutedPage(null)"></router-outlet>
     </main>
   </div>
 </div>

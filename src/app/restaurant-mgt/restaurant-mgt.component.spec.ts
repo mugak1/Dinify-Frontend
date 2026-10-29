@@ -4,7 +4,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ApiService } from '../_services/api.service';
-import { ConfirmDialogService } from '../_common/confirm-dialog.service';
 import { LocalStorageService } from '../_services/storage/local-storage.service';
 import { RestaurantMgtComponent } from './restaurant-mgt.component';
 import { regimeForWidth } from './layout/shell-layout';
@@ -72,13 +71,12 @@ describe('RestaurantMgtComponent — sidebar state persistence', () => {
 
     const auth = { currentRestaurantRole: null } as unknown as AuthenticationService;
     const api = { get: () => of({ data: {} }) } as unknown as ApiService;
-    const dialog = {} as unknown as ConfirmDialogService;
     const route = { pathFromRoot: [] } as unknown as ActivatedRoute;
     const router = { events: of(), url: '/dashboard' } as unknown as Router;
     const cdr = { detectChanges: () => {} } as unknown as ChangeDetectorRef;
 
     const component = TestBed.runInInjectionContext(() => new RestaurantMgtComponent(
-      auth, api, dialog, route, router, cdr, storage,
+      auth, api, route, router, cdr, storage,
     ));
     return { component, setCalls };
   }
@@ -166,7 +164,6 @@ describe('RestaurantMgtComponent — regimes, drawer state and the saved prefere
     const component = TestBed.runInInjectionContext(() => new RestaurantMgtComponent(
       { currentRestaurantRole: null } as unknown as AuthenticationService,
       { get: () => of({ data: {} }) } as unknown as ApiService,
-      {} as unknown as ConfirmDialogService,
       { pathFromRoot: [] } as unknown as ActivatedRoute,
       { events: of(), url: '/dashboard' } as unknown as Router,
       { detectChanges: () => {} } as unknown as ChangeDetectorRef,

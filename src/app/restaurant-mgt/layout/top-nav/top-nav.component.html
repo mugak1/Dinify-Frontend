@@ -1,46 +1,72 @@
+<!-- The top bar carries who, where and alerts; the sidebar is for navigation
+(SHELL-FINISH-00). Explicit px heights (the 14px root makes rem drift): 56px on a
+standard route, 48px on Menu's compact bar, at every width — the 44px controls set
+the floor. -->
 <header
-  class="sticky top-0 z-30 bg-background px-3 sm:px-4 md:px-6"
-  [ngClass]="compact ? 'py-1.5 md:py-2' : 'py-3 md:py-4'"
+  class="sticky top-0 z-30 bg-background px-3 sm:px-4 md:px-6 flex items-center gap-2 sm:gap-3"
+  data-testid="top-bar"
+  [ngClass]="compact ? 'h-[48px]' : 'h-[56px]'"
   >
-  <div
-    class="flex flex-col md:flex-row md:items-center"
-    [ngClass]="compact ? 'gap-2 md:gap-3' : 'gap-3 md:gap-4'"
-    >
-    <!-- Row 1: Menu button + Date filters -->
-    <div class="flex items-center gap-2 sm:gap-4 flex-1">
-      <!-- Only in the drawer regime (below 1024); from 1024 the rail's own toggle
-      opens the sidebar. The shell decides, from layout/shell-layout.ts. -->
-      @if (showMenuButton) {
-        <button #menuButton type="button"
-          (click)="menuClick.emit()"
-          data-testid="menu-button"
-          class="h-[44px] w-[44px] -ml-[10px] inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors flex-shrink-0"
-          aria-label="Open navigation"
-          aria-controls="portal-sidebar"
-          [attr.aria-expanded]="menuExpanded"
-          >
-          <svg aria-hidden="true" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="4" x2="20" y1="12" y2="12"/>
-            <line x1="4" x2="20" y1="6" y2="6"/>
-            <line x1="4" x2="20" y1="18" y2="18"/>
-          </svg>
-        </button>
-      }
+  <!-- Only in the drawer regime (below 1024); from 1024 the rail's own toggle
+  opens the sidebar. The shell decides, from layout/shell-layout.ts. -->
+  @if (showMenuButton) {
+    <button #menuButton type="button"
+      (click)="menuClick.emit()"
+      data-testid="menu-button"
+      class="h-[44px] w-[44px] -ml-[10px] inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors flex-shrink-0"
+      aria-label="Open navigation"
+      aria-controls="portal-sidebar"
+      [attr.aria-expanded]="menuExpanded"
+      >
+      <svg aria-hidden="true" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" x2="20" y1="12" y2="12"/>
+        <line x1="4" x2="20" y1="6" y2="6"/>
+        <line x1="4" x2="20" y1="18" y2="18"/>
+      </svg>
+    </button>
+  }
 
-      <!-- Right side: projected content + the current restaurant name. The name
-      is surfaced here so a multi-venue operator always sees which venue they
-      are editing. It stays right-aligned via `flex-1 … justify-end` — the layout
-      that used to keep it clear of the dashboard date pills, which now live in
-      the dashboard's own page header. -->
-      <div class="flex-1 flex items-center justify-end gap-3 min-w-0">
-        <ng-content></ng-content>
-        @if (restaurantName; as name) {
-          <span
-            class="min-w-0 truncate text-sm font-medium text-foreground max-w-[45vw] sm:max-w-[240px]"
-            [title]="name"
-          >{{ name }}</span>
+  <!-- Left: where. The current restaurant's name, so a multi-venue operator always
+  sees which venue they are editing. -->
+  <div class="flex-1 min-w-0 flex items-center">
+    @if (restaurantName; as name) {
+      <span
+        class="min-w-0 truncate text-sm font-medium text-foreground"
+        data-testid="venue-name"
+        [title]="name"
+      >{{ name }}</span>
+    }
+  </div>
+
+  <ng-content></ng-content>
+
+  <!-- Right: who. The avatar is identity, not an action — neutral, never brand red. -->
+  <button type="button"
+    [appDnMenuTriggerFor]="accountMenu"
+    data-testid="account-menu-trigger"
+    class="h-[44px] w-[44px] -mr-[6px] inline-flex items-center justify-center rounded-full hover:bg-accent transition-colors flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    [attr.aria-label]="accountLabel"
+    >
+    <app-dn-avatar size="sm" [name]="userName"></app-dn-avatar>
+  </button>
+
+  <ng-template #accountMenu>
+    <div appDnMenu aria-label="Account" data-testid="account-menu">
+      <!-- Identity header: visual only; the trigger's accessible name already says it. -->
+      <div class="px-3 pt-2 pb-2 mb-1 border-b border-border" aria-hidden="true">
+        <p class="text-sm font-medium text-foreground truncate">{{ userName || 'Account' }}</p>
+        @if (userRole) {
+          <p class="text-xs text-muted-foreground truncate">{{ userRole }}</p>
         }
       </div>
+      <a appDnMenuItem routerLink="/account" data-testid="menu-my-account">
+        <svg aria-hidden="true" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        My account
+      </a>
+      <button appDnMenuItem type="button" (appDnMenuItemTriggered)="signOut()" data-testid="menu-sign-out">
+        <svg aria-hidden="true" class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign out
+      </button>
     </div>
-  </div>
+  </ng-template>
 </header>

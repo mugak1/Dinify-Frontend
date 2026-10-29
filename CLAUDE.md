@@ -2378,11 +2378,14 @@ so keep it current when conventions change.
   user's Name / Email / Phone / Role / Restaurant plus a Sign-out button. It is
   DISTINCT from `settings/account` (`AccountSecurityComponent`, the
   security/password section). It is NOT module-guarded (any signed-in member
-  reaches it), is opened from the account chip pinned to the bottom of the
-  `SidebarComponent`, and is the `/account` landing fallback for a
-  member with no accessible modules (the "No modules assigned" case). The
-  shared `app-dn-avatar` (initials-in-a-circle) renders the user glyph here and
-  in the sidebar chip
+  reaches it), is opened from **My account** in the top bar's avatar menu, and is
+  the `/account` landing fallback for a member with no accessible modules (the
+  "No modules assigned" case). The sidebar's account chip is RETIRED
+  (SHELL-FINISH-00 PR 2). Its Sign out goes through the same one confirmation as
+  the avatar menu's, and the Role field reads through `roleLabel()` (kitchen →
+  "Chef"). The shared `app-dn-avatar` (initials-in-a-circle) renders the user glyph
+  here and on the avatar trigger, in the neutral variant: the avatar is identity,
+  not an action
 - Reviews: ✅ real-wired — a standalone Overview (route `reviews`,
   `ReviewsOverviewComponent`: summary line, needs-attention block, dimension
   breakdown, rating-trend chart) plus a Feed (route `reviews/feed`,
@@ -3032,6 +3035,31 @@ so keep it current when conventions change.
 
   Pinned by `restaurant-mgt.component.spec.ts`, `sidebar.component.spec.ts` and
   `top-nav.component.spec.ts`
+- **THE TOP BAR CARRIES WHO AND WHERE, AND THERE IS ONE SIGN-OUT PATH (SHELL-FINISH-00, PR 2).**
+  ✅ The top bar is `h-[56px]` on a standard route and `h-[48px]` on Menu's compact
+  bar, at every width. Before, it varied from 31.5 to 59.5px with width and route.
+
+  **What it shows.** Left: the menu button (below 1024 only) and the venue name.
+  Right: the avatar trigger, a 44px button with the neutral avatar, opening the
+  shared menu. The menu has a visual identity header (name, plus the role through
+  `roleLabel()`), **My account** (`/account`) and **Sign out**. The trigger's
+  accessible name says whose menu it is.
+
+  **ONE SIGN-OUT PATH.** `layout/session-actions.service.ts` `confirmSignOut()` is
+  the only way the portal signs out; the avatar menu and `/account` both call it.
+  `TopNavComponent.logoutClick` was never emitted, and the shell's `logout()` that
+  listened to it are both deleted. `/account` used to sign out with no confirmation.
+
+  **ASKED ONCE ABOUT UNSAVED CHANGES.** Sign-out is a full page load, so
+  `unsavedChangesGuard` never runs. The shell records its outlet's activated
+  component, and the Settings section pages render there because `settings` has no
+  component of its own. If that page reports `isDirty`, the one dialog says so and
+  turns destructive ("Discard and sign out" / "Keep editing"). Never navigate first
+  to trigger the guard: that stacks a second dialog.
+
+  Pinned by `menu.directives.spec.ts`, `session-actions.service.spec.ts`,
+  `top-nav.component.spec.ts`, `account.component.spec.ts` and
+  `sidebar.component.spec.ts`
 - Offline/connectivity UX: ✅ a `ConnectivityService` (`navigator.onLine`) drives a
   persistent `OfflineBannerComponent` in the restaurant portal shell (its only
   host now that the admin plane has left) and an `OfflineStripComponent` in the
@@ -4027,7 +4055,16 @@ segmented (`app-dn-segmented`), sheet, switch (`app-dn-switch`; supports a
 plus the `tooltip` directive (`[appTooltip]`, not a component), the body-portal
 directive (`[appBodyPortal]`: renders its host under `<body>`, for a viewport
 overlay whose ancestor would clip it in Safari; see DINER-OVERLAY-PORTAL-00), the
-`SafeArrayPipe`, and the `HighlightPipe` (search-term highlighting). The
+`SafeArrayPipe`, the `HighlightPipe` (search-term highlighting), and the MENU
+primitive (`menu/menu.directives.ts`: `[appDnMenuTriggerFor]`, `[appDnMenu]`,
+`[appDnMenuItem]`, imported together as `DN_MENU`). The menu primitive is the
+CDK menu (`@angular/cdk/menu`) composed as host directives with the house styling.
+That gives arrow keys, Home/End, Esc, close on outside click, focus return,
+`aria-haspopup`/`aria-expanded`, 44px rows, and rendering under `<body>` in the
+overlay container (z 1000), above the sidebar and backdrop. They are DIRECTIVES and
+not a wrapper component, because a `cdkMenuItem` resolves its menu through the
+template that DECLARES it, so items projected into a wrapper would lose the keyboard
+model. Use it for any new dropdown menu rather than hand-rolling one on Overlay. The
 `toast/` folder also exports the injectable `ToastService` (the app-wide toast
 queue), re-exported from the barrel.
 

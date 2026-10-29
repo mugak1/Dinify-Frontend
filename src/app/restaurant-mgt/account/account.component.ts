@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 import { AuthenticationService } from '../../_services/authentication.service';
+import { SessionActionsService } from '../layout/session-actions.service';
+import { roleLabel } from '../settings/team/members/staff-roles';
 import { CardComponent, ButtonComponent, AvatarComponent } from '../../_shared/ui';
 
 @Component({
@@ -11,7 +13,10 @@ import { CardComponent, ButtonComponent, AvatarComponent } from '../../_shared/u
   templateUrl: './account.component.html',
 })
 export class AccountComponent {
-  constructor(public auth: AuthenticationService) {}
+  constructor(
+    public auth: AuthenticationService,
+    private sessionActions: SessionActionsService,
+  ) {}
 
   get name(): string {
     const p = this.auth.userValue?.profile;
@@ -29,8 +34,9 @@ export class AccountComponent {
   }
 
   get roleLabel(): string {
+    // The one role vocabulary (kitchen → "Chef", restaurant_staff → "Staff").
     const roles = this.auth.currentRestaurantRole?.roles ?? [];
-    return roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(', ');
+    return roles.map((r) => roleLabel(r)).join(', ');
   }
 
   get restaurantName(): string {
@@ -52,7 +58,8 @@ export class AccountComponent {
     ];
   }
 
+  /** The one sign-out path, shared with the top bar's avatar menu: one confirmation. */
   signOut(): void {
-    this.auth.logout();
+    this.sessionActions.confirmSignOut();
   }
 }

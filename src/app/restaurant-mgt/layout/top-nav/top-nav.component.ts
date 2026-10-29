@@ -1,6 +1,10 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Output, EventEmitter, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { AuthenticationService } from '../../../_services/authentication.service';
+import { AvatarComponent, DN_MENU } from '../../../_shared/ui';
+import { roleLabel } from '../../settings/team/members/staff-roles';
+import { SessionActionsService } from '../session-actions.service';
 
 // The dashboard date-range pills used to live here, gated on a
 // `DashboardService.isDashboardActive$` flag that existed for no other reason. They moved
@@ -11,12 +15,11 @@ import { AuthenticationService } from '../../../_services/authentication.service
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-top-nav',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink, AvatarComponent, ...DN_MENU],
   templateUrl: './top-nav.component.html',
 })
 export class TopNavComponent {
   @Output() menuClick = new EventEmitter<void>();
-  @Output() logoutClick = new EventEmitter<void>();
   @Input() compact = false;
   /** Render the menu button: the shell sets this only in the drawer regime (below 1024). */
   @Input() showMenuButton = false;
@@ -25,7 +28,10 @@ export class TopNavComponent {
 
   @ViewChild('menuButton') private menuButton?: ElementRef<HTMLButtonElement>;
 
-  constructor(private auth: AuthenticationService) {}
+  constructor(
+    private auth: AuthenticationService,
+    private sessionActions: SessionActionsService,
+  ) {}
 
   /**
    * The current restaurant's name, surfaced in the chrome so a multi-venue
@@ -38,6 +44,29 @@ export class TopNavComponent {
   /** Return focus to the menu button (Esc closing the drawer). */
   focusMenuButton(): void {
     this.menuButton?.nativeElement.focus();
+  }
+
+  /** The signed-in operator's name, from the canonical profile. */
+  get userName(): string {
+    const p = this.auth.userValue?.profile;
+    if (!p) return '';
+    return `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
+  }
+
+  /** The selected membership's role, through the one role vocabulary (`roleLabel`). */
+  get userRole(): string {
+    return roleLabel(this.auth.currentRestaurantRole?.roles?.[0]);
+  }
+
+  /** The avatar trigger's accessible name: the menu, and whose it is. */
+  get accountLabel(): string {
+    const who = [this.userName, this.userRole].filter(Boolean).join(', ');
+    return who ? `Account menu: ${who}` : 'Account menu';
+  }
+
+  /** The one sign-out path (shared with /account): one confirmation, then logout. */
+  signOut(): void {
+    this.sessionActions.confirmSignOut();
   }
 
   get restaurantName(): string {

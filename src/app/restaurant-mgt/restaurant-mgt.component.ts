@@ -3,7 +3,6 @@ import { DOCUMENT, NgClass } from '@angular/common';
 import { AuthenticationService } from '../_services/authentication.service';
 import { ApiService } from '../_services/api.service';
 import { RestaurantDetail } from '../_models/app.models';
-import { ConfirmDialogService } from '../_common/confirm-dialog.service';
 import { environment } from 'src/environments/environment';
 import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -11,6 +10,7 @@ import { LocalStorageService } from '../_services/storage/local-storage.service'
 import { SidebarComponent } from './layout/sidebar/sidebar.component';
 import { TopNavComponent } from './layout/top-nav/top-nav.component';
 import { OfflineBannerComponent } from '../_shared/ui';
+import { SessionActionsService } from './layout/session-actions.service';
 import { EXPANDED_WIDTH_PX, RAIL_WIDTH_PX, ShellRegime, regimeForWidth } from './layout/shell-layout';
 
 // The SAVED rail preference: expanded (true) or collapsed (false) in the
@@ -38,6 +38,8 @@ const SIDEBAR_STATE_KEY = 'sidebar.expanded';
 })
 export class RestaurantMgtComponent implements OnDestroy {
   private readonly document = inject(DOCUMENT);
+  /** Records the routed page so sign-out can ask once about unsaved changes. */
+  readonly sessionActions = inject(SessionActionsService);
 
   @ViewChild(SidebarComponent) private sidebar?: SidebarComponent;
   @ViewChild(TopNavComponent) private topNav?: TopNavComponent;
@@ -83,7 +85,6 @@ export class RestaurantMgtComponent implements OnDestroy {
   constructor(
     public auth: AuthenticationService,
     private api: ApiService,
-    private dialog: ConfirmDialogService,
     private route: ActivatedRoute,
     private router: Router,
     private cdr: ChangeDetectorRef,
@@ -200,24 +201,5 @@ export class RestaurantMgtComponent implements OnDestroy {
     this.document.body.classList.toggle('dn-drawer-open', this.overlayOpen);
   }
 
-  logout(): void {
-    const ref = this.dialog
-      .openModal({
-        title: 'Log out of Dinify?',
-        message: 'You can sign back in at any time.',
-        tone: 'neutral',
-        submitButtonText: 'Log out',
-      })
-      .subscribe((x: any) => {
-        if (x?.action === 'yes') {
-          this.auth.logout();
-          this.dialog.closeModal();
-          ref.unsubscribe();
-        }
-        if (x?.action === 'no') {
-          this.dialog.closeModal();
-          ref.unsubscribe();
-        }
-      });
-  }
+
 }

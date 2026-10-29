@@ -201,4 +201,10 @@ describe('SidebarComponent (rendered) — regimes, inert and the collapsed rail'
     expect(document.activeElement).toBe(toggle);
     fixture.nativeElement.remove();
   });
+
+  it('carries no account chip: account controls live in the top bar', async () => {
+    const { el } = await render('rail-push', true);
+    expect(el.querySelector('a[href="/account"]')).toBeNull();
+    expect(el.querySelector('app-dn-avatar')).toBeNull();
+  });
 });
