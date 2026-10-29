@@ -28,4 +28,22 @@
         (deactivate)="sessionActions.trackRoutedPage(null)"></router-outlet>
     </main>
   </div>
+  <!-- Cross-tab guard notice. Shown after staff requests have already stopped;
+  it takes focus so nothing behind it can be used, then the tab reloads. -->
+  @if (leavingFor) {
+    <div #leavingNotice tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="leaving-title"
+      data-testid="cross-tab-notice"
+      class="fixed inset-0 z-[200] flex items-center justify-center bg-background/95 p-6 outline-none">
+      <div class="max-w-sm text-center">
+        <p id="leaving-title" class="text-base font-medium text-foreground">
+          @switch (leavingFor.kind) {
+            @case ('switched') { Switched to {{ leavingFor.restaurant }} in another tab }
+            @case ('other-user') { Someone else signed in to Dinify in another tab }
+            @default { Signed out in another tab }
+          }
+        </p>
+        <p class="mt-1 text-sm text-muted-foreground">Reloading this tab…</p>
+      </div>
+    </div>
+  }
 </div>

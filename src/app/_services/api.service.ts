@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, EMPTY, defer, of } from 'rxjs';
 import { catchError, expand, map, reduce } from 'rxjs/operators';
@@ -12,9 +12,15 @@ export class ApiService {
   _base: string = `${environment.apiUrl}/api/${environment.version}`;
   constructor(private _http: HttpClient) { }
 
-  get<T>(id: any,url: string, parameters = {},version?:any):Observable<ApiResponse<T>> {
+  /**
+   * `context` is optional and omitted by every existing caller. Pass one to carry
+   * per-request flags to the interceptors, e.g. `SILENT_FAILURE` for a request
+   * whose failure the caller reports itself.
+   */
+  get<T>(id: any,url: string, parameters = {},version?:any, context?: HttpContext):Observable<ApiResponse<T>> {
     const l = this.correctFormatForQueryUrl(parameters);
-    return this._http["get"](`${version?environment.apiUrl + '/api/' + version:this._base}/${url}${id ? "/" + id : ""}${l}`) as any;
+    const target = `${version?environment.apiUrl + '/api/' + version:this._base}/${url}${id ? "/" + id : ""}${l}`;
+    return (context ? this._http.get(target, { context }) : this._http.get(target)) as any;
   }
 
   /**

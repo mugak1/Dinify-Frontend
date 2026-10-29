@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, ReplaySubject, Subscription, TimeoutError, defer, of, map, take, timeout } from 'rxjs';
-import { ApiResponse, LoginResponse, ModuleKey, OTPResponse, PermissionsMap, RestaurantDetail, RestaurantRole} from '../_models/app.models';
+import { ApiResponse, LoginResponse, ModuleKey, OTPResponse, PermissionsMap, Profile, RestaurantDetail, RestaurantRole} from '../_models/app.models';
 import { HttpBackend, HttpClient, HttpErrorResponse, HttpRequest } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { canAccess as canAccessModule, firstAccessibleRoute as firstAccessibleModuleRoute } from '../_helpers/module-access';
@@ -20,6 +20,25 @@ import { CREDENTIAL_HEADER, SESSION_HEADER } from '../_security/diner-capability
 const LOGOUT_PRESERVE_PREFIXES: readonly string[] = [
   '[dinify]menu.sortMode:',
 ] as const;
+
+/**
+ * What a RESTAURANT SWITCH keeps beyond what logout keeps: viewing preferences
+ * that belong to the operator rather than to a restaurant. The saved rail
+ * preference (`sidebar.expanded`) is one — it is not restaurant-scoped, and the
+ * same person at the same desk wants the same sidebar after switching venue.
+ * Everything else under `[dinify]` is restaurant-scoped navigation state
+ * (selected section, timeframe seeds, Tables view) and is cleared, as on logout.
+ * Those keys already carry `:<restaurantId>`, so none of them could leak between
+ * restaurants; clearing them is hygiene, and it keeps "switching" and "signing in
+ * to another venue" landing in the same state.
+ */
+const SWITCH_PRESERVE_PREFIXES: readonly string[] = [
+  ...LOGOUT_PRESERVE_PREFIXES,
+  '[dinify]sidebar.expanded',
+] as const;
+
+/** How a restaurant switch ended. See `switchRestaurantAndReload`. */
+export type RestaurantSwitchOutcome = 'switched' | 'principal-changed';
 
 /**
  * Upper bound on how long logout waits for the server-side refresh-token
@@ -205,6 +224,13 @@ export class AuthenticationService {
   private exitingSession: number | null = null;
   /** The one renewal in flight for the current session, or null. */
   private flight: RenewalFlight | null = null;
+  /**
+   * This document has stopped acting for anyone: its selected restaurant or its
+   * principal moved under it (another tab), or it is switching restaurant and
+   * about to reload. `AuthInterceptor` sends no staff request while this is set.
+   * One-way: only the full page load that follows ends it.
+   */
+  private retired = false;
 
   constructor(
       private http: HttpClient,
@@ -421,6 +447,112 @@ this.userSubject.next(u as any)
   }
 
   /**
+   * Switch the selected restaurant and RELOAD THE PAGE onto `landingPath`
+   * (SHELL-FINISH-00, PR 3). Modelled on `installAuthenticatedSessionAndReload`,
+   * and the reload is part of the operation for the same reason: clearing storage
+   * does not replace a tenant. Every `providedIn: 'root'` service still holds the
+   * outgoing restaurant's data in memory, and only destroying the document clears
+   * it. `location.replace` means Back cannot bring that document back.
+   *
+   * WHAT THE ARGUMENTS GUARANTEE:
+   *  - `profile` is the CANONICAL profile, freshly read from
+   *    `GET users/user-profile/`, never the copy this document loaded at sign-in.
+   *  - `membership` is an entry taken FROM `profile.restaurant_roles`, the
+   *    resolved object itself, carrying the backend's `permissions` map. Never a
+   *    hand-built object: the frontend cannot compute a permissions map. This is
+   *    checked by identity, and a violation throws.
+   *  - `landingPath` is already resolved by the caller (the shared landing rule).
+   *
+   * THE SESSION IS WRITTEN FROM STORAGE, NOT FROM THIS DOCUMENT. Another tab may
+   * already have rotated the refresh token, so writing this document's in-memory
+   * copy would put a spent refresh token back, and the next renewal would sign the
+   * operator out (the race `adoptRenewal` describes). So the STORED session is
+   * read, its profile id is checked against this document's, and only `profile`
+   * is replaced, keeping whatever tokens are stored. If the stored session, or the
+   * fresh profile, belongs to someone else (a different user signed in from
+   * another tab), nothing is written and the answer is `'principal-changed'`: the
+   * caller reloads into whatever is now stored (`retireAndReload`).
+   *
+   * Staff requests stop FIRST (`retire`), before anything is written, so nothing
+   * this document sends can carry the new restaurant's id with the old one's data.
+   * A renewal already in flight is then awaited (see `whenRenewalSettled`), so the
+   * stored session read afterwards carries the rotated tokens.
+   */
+  async switchRestaurantAndReload(
+    profile: Profile,
+    membership: RestaurantRole,
+    landingPath: string,
+  ): Promise<RestaurantSwitchOutcome> {
+    if (!Array.isArray(profile?.restaurant_roles) || !profile.restaurant_roles.includes(membership)) {
+      throw new Error('switchRestaurantAndReload: the membership must be an entry of the fresh profile');
+    }
+    this.retire();
+    // A renewal already in flight is let LAND before anything is read or
+    // written: the server rotates and blacklists on refresh, so the pair it
+    // answers with is the only live credential this login has. Discarding it
+    // would reload onto a spent refresh token and the next renewal would sign
+    // the operator out. Bounded by REFRESH_TRANSPORT_CAP_MS.
+    await this.whenRenewalSettled();
+    const documentProfileId = this.userValue?.profile?.id;
+    const stored = this.readStored('user') as (LoginResponse & { profile?: Profile }) | null;
+    if (!nonEmptyString(documentProfileId)
+        || stored?.profile?.id !== documentProfileId
+        || profile.id !== documentProfileId) {
+      return 'principal-changed';
+    }
+    localStorage.setItem('user', JSON.stringify({ ...stored, profile }));
+    this.setCurrentRestaurantRole(membership);
+    localStorage.removeItem('current_resta');
+    this.clearPersistedNavState(SWITCH_PRESERVE_PREFIXES);
+    // LAST, and REPLACE (see installAuthenticatedSessionAndReload).
+    this.hardRedirect(landingPath, 'replace');
+    return 'switched';
+  }
+
+  /**
+   * Stop acting and reload into whatever storage now holds, writing NOTHING.
+   * Used when another tab moved the selected restaurant or the principal under
+   * this one (the shell's cross-tab guard), and when a switch finds the stored
+   * session belongs to someone else. Storage was left consistent by whoever wrote
+   * it; this document's job is only to stop and get out of the way.
+   */
+  async retireAndReload(landingPath: string): Promise<void> {
+    this.retire();
+    await this.whenRenewalSettled();
+    this.hardRedirect(landingPath, 'replace');
+  }
+
+  /**
+   * Stop this document acting for anyone, synchronously: `AuthInterceptor`
+   * sends no staff request, and `ownerIsCurrent` answers false, so no new
+   * renewal starts, no 401 is replayed and no request can end the session.
+   *
+   * It deliberately does NOT move the session generation. A renewal already in
+   * flight belongs to the SAME login that will be reloaded, and the server has
+   * rotated (and blacklisted) the refresh token it presented, so its answer must
+   * still be persisted; moving the generation would discard it. One-way; the
+   * reload that follows is what ends it.
+   */
+  retire(): void {
+    this.retired = true;
+  }
+
+  /**
+   * Resolves once no renewal is in flight. A pending one settles by its own
+   * transport cap (`REFRESH_TRANSPORT_CAP_MS`), so this always resolves.
+   */
+  whenRenewalSettled(): Promise<void> {
+    const flight = this.flight;
+    if (!flight) return Promise.resolve();
+    return new Promise<void>(resolve => flight.outcome.subscribe({ complete: resolve, error: () => resolve() }));
+  }
+
+  /** Whether this document has stopped sending staff requests (see `retire`). */
+  get isRetired(): boolean {
+    return this.retired;
+  }
+
+  /**
    * Select the membership the portal acts in.
    *
    * A change of the selected restaurant IDENTITY moves the context generation,
@@ -483,7 +615,7 @@ this.userSubject.next(u as any)
     this.clearPersistedNavState();
   }
 
-  private clearPersistedNavState(): void {
+  private clearPersistedNavState(preserve: readonly string[] = LOGOUT_PRESERVE_PREFIXES): void {
     // Snapshot keys first — mutating localStorage while iterating it by index
     // shifts subsequent indices and skips entries.
     const keysToRemove: string[] = [];
@@ -491,7 +623,7 @@ this.userSubject.next(u as any)
       const key = localStorage.key(i);
       if (!key) continue;
       if (!key.startsWith('[dinify]')) continue;
-      if (LOGOUT_PRESERVE_PREFIXES.some(p => key.startsWith(p))) continue;
+      if (preserve.some(p => key.startsWith(p))) continue;
       keysToRemove.push(key);
     }
     keysToRemove.forEach(k => {
@@ -536,7 +668,8 @@ this.userSubject.next(u as any)
    * reset, logout or restaurant switch does.
    */
   ownerIsCurrent(owner: RequestOwner): boolean {
-    return owner.session === this.sessionGeneration
+    return !this.retired
+      && owner.session === this.sessionGeneration
       && this.exitingSession !== this.sessionGeneration
       && owner.context === this.contextGeneration
       && owner.restaurantId === this.currentRestaurantId()
@@ -634,7 +767,9 @@ this.userSubject.next(u as any)
   private settleFlight(flight: RenewalFlight, outcome: RenewalOutcome): void {
     if (this.flight === flight) this.flight = null;
     let settled = flight.session === this.sessionGeneration ? outcome : SUPERSEDED;
-    if (settled.kind === 'rejected'
+    // A RETIRED document ends nothing: it is about to reload, and storage may
+    // already hold another tab's newer session, which a logout would destroy.
+    if (settled.kind === 'rejected' && !this.retired
         && (this.userValue as { refresh?: unknown } | null)?.refresh === flight.presentedRefresh) {
       this.logout();
       settled = { kind: 'rejected', ended: true };
@@ -673,8 +808,13 @@ this.userSubject.next(u as any)
     if (!current || current.refresh !== flight.presentedRefresh) return SUPERSEDED;
     const stored = this.readStored('user');
     if (!stored || stored.refresh !== flight.presentedRefresh) return SUPERSEDED;
+    // A RETIRED document merges the tokens into the STORED session, not its own
+    // copy: another tab may have just written a fresh profile there (a venue
+    // switch), and this document's profile is the stale one it is reloading away
+    // from. Same principal only.
+    if (this.retired && stored.profile?.id !== current.profile?.id) return SUPERSEDED;
 
-    const updated = { ...current, token: answer.access, refresh: answer.refresh };
+    const updated = { ...(this.retired ? stored : current), token: answer.access, refresh: answer.refresh };
     let durable: boolean;
     try {
       localStorage.setItem('user', JSON.stringify(updated));

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor, HttpErrorResponse } from '@angular/common/http';
+import { HttpRequest, HttpHandler, HttpEvent, HttpInterceptor, HttpErrorResponse, HttpContextToken } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { Router } from '@angular/router';
@@ -9,6 +9,24 @@ import {
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
 import { isAccountLookup, isNoAccountAnswer, lookupRefusalMessage } from './account-lookup';
+
+/**
+ * A request whose failure the CALLER reports, so the interceptor must not toast
+ * it (SHELL-FINISH-00). Set it on the request's `HttpContext`:
+ *
+ *   api.get(null, 'users/user-profile/', {}, undefined,
+ *           new HttpContext().set(SILENT_FAILURE, true))
+ *
+ * It is honoured in EVERY branch that toasts — a network failure (status 0), a
+ * 429, an authenticated 403, a renewal that could not be confirmed, and the
+ * generic message toast (which covers 5xx) — and it changes NOTHING else: the
+ * same value is still thrown, 401 recovery still runs, and a session the server
+ * has refused still ends. It is an opt-out from the toast, not from the error.
+ * Prefer it over another per-URL carve-out: the caller knows it will report the
+ * failure itself (an inline error, or a background poll that stays quiet), and a
+ * URL list in this file cannot.
+ */
+export const SILENT_FAILURE = new HttpContextToken<boolean>(() => false);
 
 /**
  * First URL segments that are NOT back-office banner shells. Now that the
@@ -134,7 +152,7 @@ export class ErrorInterceptor implements HttpInterceptor {
 
         if (err.status === 429) {
             const retryMsg = err.error?.message || 'Too many attempts. Please wait a few minutes before trying again.';
-            this.toast.warning(retryMsg);
+            if (!isSilent(request)) this.toast.warning(retryMsg);
             return throwError(() => 'rate_limited');
         }
 
@@ -179,7 +197,7 @@ export class ErrorInterceptor implements HttpInterceptor {
             // enforcing server-side; every backend session-bad scenario returns 401,
             // so dropping logout-on-403 cannot trap a genuinely dead session.
             const denial = err.error?.message || "You don't have permission to do that.";
-            this.toast.error(denial);
+            if (!isSilent(request)) this.toast.error(denial);
             return throwError(() => denial);
         }
 
@@ -274,7 +292,7 @@ export class ErrorInterceptor implements HttpInterceptor {
         }
 
         const error = err.error?.message || err.statusText;
-        if (error) {
+        if (error && !isSilent(request)) {
             this.toast.error(error);
         }
         return throwError(() => error);
@@ -316,7 +334,7 @@ export class ErrorInterceptor implements HttpInterceptor {
         // scan) is in flight, and no shell is rendered there to own the signal.
         const firstSegment = this.router.url.split('?')[0].split('#')[0].split('/').filter(Boolean)[0] ?? '';
         const onBannerShell = firstSegment !== '' && !NON_BANNER_SHELL_ROOTS.includes(firstSegment);
-        if (!this.isDinerRequest(request) && !(onBannerShell && this.connectivity.isOffline())) {
+        if (!isSilent(request) && !this.isDinerRequest(request) && !(onBannerShell && this.connectivity.isOffline())) {
             this.toast.error("You're offline — check your connection.");
         }
         return throwError(() => 'no network');
@@ -390,7 +408,7 @@ export class ErrorInterceptor implements HttpInterceptor {
                 // again. A transport failure keeps the existing 'no network'
                 // contract; anything else gets one fixed human sentence.
                 if (outcome.cause === 'transport') return this.networkFailure(request);
-                this.toast.error(SESSION_UNCONFIRMED_MESSAGE);
+                if (!isSilent(request)) this.toast.error(SESSION_UNCONFIRMED_MESSAGE);
                 return throwError(() => SESSION_UNCONFIRMED_MESSAGE);
         }
     }
@@ -423,4 +441,9 @@ export class ErrorInterceptor implements HttpInterceptor {
             }),
         );
     }
+}
+
+/** The caller has opted this request out of the interceptor's toasts. */
+function isSilent(request: HttpRequest<unknown>): boolean {
+    return request.context.get(SILENT_FAILURE);
 }

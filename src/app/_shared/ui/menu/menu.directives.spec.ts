@@ -151,3 +151,48 @@ describe('DN menu primitive (CDK menu, house styling)', () => {
     expect(menu()).toBeNull();
   });
 });
+
+@Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: true,
+  imports: [...DN_MENU],
+  template: `
+    <button type="button" data-testid="trigger" [appDnMenuTriggerFor]="m">Open</button>
+    <ng-template #m>
+      <div appDnMenu aria-label="Pick one">
+        @for (o of options; track o) {
+          <button appDnMenuItemRadio type="button" [appDnMenuItemChecked]="o === chosen"
+            (appDnMenuItemTriggered)="picked = o">{{ o }}</button>
+        }
+      </div>
+    </ng-template>
+  `,
+})
+class RadioHostComponent {
+  options = ['A', 'B'];
+  chosen = 'A';
+  picked = '';
+}
+
+describe('DN menu primitive — single-choice rows (appDnMenuItemRadio)', () => {
+  it('render as menuitemradio with aria-checked, 44px tall, and run on choose', async () => {
+    await TestBed.configureTestingModule({ imports: [RadioHostComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(RadioHostComponent);
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-testid="trigger"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const overlay = TestBed.inject(OverlayContainer).getContainerElement();
+    const rows = Array.from(overlay.querySelectorAll<HTMLElement>('[role="menuitemradio"]'));
+    expect(rows.length).toBe(2);
+    expect(rows.map(r => r.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+    for (const r of rows) expect(r.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    rows[1].click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.picked).toBe('B');
+    fixture.destroy();
+    fixture.nativeElement.remove();
+  });
+});
