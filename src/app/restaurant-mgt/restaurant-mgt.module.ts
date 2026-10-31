@@ -94,7 +94,7 @@ export const restaurantMgtRoutes: Routes = [
     {path:'tax-receipts',component:TaxReceiptsComponent,title:'Tax & receipts',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
     {path:'billing',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
     {path:'billing/paid/:id',component:BillingComponent,title:'Billing',canActivate:[permissionGuard],data:{module:'billing'}},
-    {path:'preset-tags',component:PresetTagsComponent,title:'Preset tags',canActivate:[permissionGuard],data:{module:'settings'}},
+    {path:'preset-tags',component:PresetTagsComponent,title:'Dietary & allergen labels',canActivate:[permissionGuard],data:{module:'settings'}},
     {path:'account',component:AccountSecurityComponent,title:'Account & security',canActivate:[permissionGuard],canDeactivate:[unsavedChangesGuard],data:{module:'settings'}},
   ]},
   {path:'menu',component:MenuComponent,title:'Menu',canActivate:[permissionGuard],data:{module:'menu'}},

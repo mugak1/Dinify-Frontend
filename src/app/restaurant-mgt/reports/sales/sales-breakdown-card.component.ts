@@ -44,7 +44,7 @@ import { SalesBreakdownRow } from './sales-view';
           [rows]="rows"
           [totals]="totals"
           [searchable]="true"
-          searchPlaceholder="Find a bucket…"
+          [searchPlaceholder]="searchPlaceholder"
           [stickyTotals]="true"
           highlightRowKey="key"
           [highlightRowValue]="bestKey"
@@ -71,6 +71,15 @@ export class SalesBreakdownCardComponent implements OnChanges {
 
   netFocus = false;
   columns: ReportColumn[] = [];
+
+  /**
+   * "Search days" / "Search months"… — named after the rows actually listed, never
+   * "bucket", which is an implementation word an operator should not have to decode.
+   */
+  get searchPlaceholder(): string {
+    const unit = this.periodLabel.trim().toLowerCase();
+    return unit && unit !== 'period' ? `Search ${unit}s` : 'Search';
+  }
 
   ngOnChanges(): void {
     this.rebuildColumns();

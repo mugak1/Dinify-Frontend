@@ -431,7 +431,7 @@ async function main() {
     await route.fetch();            // the SERVER really processes it...
     await route.abort('connectionreset');   // ...and the browser sees nothing
   });
-  await cardA.getByRole('button', { name: 'Ready' }).click();
+  await cardA.getByRole('button', { name: 'Mark ready' }).click();
 
   const noticeA = cardA.locator('[data-testid="ticket-operation"]');
   // An aborted command never replies, so the barrier is the OUTCOME: the card
@@ -534,7 +534,7 @@ async function main() {
   await feedGate.captured;           // a snapshot taken while it is still active
 
   const serveReply = commandReply(deviceA.page);
-  await card2.getByRole('button', { name: 'Served' }).click();
+  await card2.getByRole('button', { name: 'Mark served' }).click();
   await serveReply;
   await until('the served ticket to leave the Active board',
               async () => (await card2.count()) === 0);
@@ -698,7 +698,7 @@ async function main() {
          .trim().toLowerCase() === 'served');
 
   const serveReply4 = commandReply(deviceA.page);
-  await card4.getByRole('button', { name: 'Served' }).click();
+  await card4.getByRole('button', { name: 'Mark served' }).click();
   await serveReply4;
   await until('the served ticket to leave the Active board',
               async () => (await card4.count()) === 0);

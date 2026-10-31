@@ -228,7 +228,7 @@ type TimeframeDays = 30 | 90;
             <div class="text-base sm:text-lg font-bold text-foreground tabular-nums">
               {{ criticalSharePct | number: '1.0-0' }}%
             </div>
-            <div class="text-[11px] sm:text-xs text-muted-foreground mt-0.5">Critical share</div>
+            <div class="text-[11px] sm:text-xs text-muted-foreground mt-0.5">Reviews below 4★</div>
           </div>
         </div>
 
