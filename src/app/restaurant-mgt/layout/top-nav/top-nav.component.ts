@@ -62,14 +62,7 @@ export class TopNavComponent {
     this.switcher.requestSwitch(m);
   }
 
-  /**
-   * The current restaurant's name, surfaced in the chrome so a multi-venue
-   * operator always sees which venue they're editing (the shell fetches the
-   * detail but rendered the name nowhere). Prefer the freshly-fetched detail
-   * (`current_resta`, reflects an in-session rename); fall back to the
-   * membership label (`rest_role.restaurant`), which is present immediately on
-   * first paint before the detail request resolves.
-   */
+ 
   /** Return focus to the menu button (Esc closing the drawer). */
   focusMenuButton(): void {
     this.menuButton?.nativeElement.focus();
@@ -97,7 +90,14 @@ export class TopNavComponent {
   signOut(): void {
     this.sessionActions.confirmSignOut();
   }
-
+ /**
+   * The current restaurant's name, surfaced in the chrome so a multi-venue
+   * operator always sees which venue they're editing (the shell fetches the
+   * detail but rendered the name nowhere). Prefer the freshly-fetched detail
+   * (`current_resta`, reflects an in-session rename); fall back to the
+   * membership label (`rest_role.restaurant`), which is present immediately on
+   * first paint before the detail request resolves.
+   */
   get restaurantName(): string {
     return this.auth.currentRestaurant?.name || this.auth.currentRestaurantRole?.restaurant || '';
   }
