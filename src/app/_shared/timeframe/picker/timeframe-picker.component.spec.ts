@@ -501,7 +501,7 @@ describe('TimeframePickerComponent', () => {
 
       const t = cmpTrigger()!;
       expect(t).not.toBeNull();
-      expect(t.textContent).toContain('Previous month by day (Mon–Sun)');
+      expect(t.textContent).toContain('vs last month, same weekdays');
       expect(t.getAttribute('aria-expanded')).toBe('false');
       // Sized to the cluster, like the arrows and the date trigger.
       expect(t.className).toContain('h-[38px]');
@@ -532,7 +532,7 @@ describe('TimeframePickerComponent', () => {
       expect(cmpTrigger()!.getAttribute('aria-expanded')).toBe('true');
       const selected = cmpOptions().filter((o) => o.getAttribute('aria-selected') === 'true');
       expect(selected.length).toBe(1);
-      expect(selected[0].textContent).toContain('Previous year by day');
+      expect(selected[0].textContent).toContain('vs last year, same weekdays');
     });
 
     // ─── The user-placed window (TIMEFRAME-02D) ───────────────────────────────────
@@ -540,7 +540,7 @@ describe('TimeframePickerComponent', () => {
     // 'Custom period' is the ONE menu entry that does not commit on pick — it needs a start
     // date, so it opens a staged calendar and commits on Apply. Everything here is about
     // that difference.
-    describe("'Custom period'", () => {
+    describe("'vs custom period'", () => {
       const startPanel = (): Element | null =>
         document.querySelector('.dn-comparison-start-overlay-panel');
 
@@ -568,11 +568,11 @@ describe('TimeframePickerComponent', () => {
           (b) => (b.textContent ?? '').trim() === text,
         ) as HTMLButtonElement;
 
-      /** Open the dropdown and click the 'Custom period' entry. */
+      /** Open the dropdown and click the 'vs custom period' entry. */
       function pickCustom(): void {
         cmpTrigger()!.click();
         fixture.detectChanges();
-        const entry = cmpOptions().find((o) => (o.textContent ?? '').includes('Custom period'))!;
+        const entry = cmpOptions().find((o) => (o.textContent ?? '').includes('vs custom period'))!;
         entry.click();
         fixture.detectChanges();
       }
@@ -780,13 +780,13 @@ describe('TimeframePickerComponent', () => {
         fixture.componentRef.setInput('customComparisonFrom', '2026-03-01');
         fixture.detectChanges();
         // 31 days from 1 Mar is 1–31 Mar.
-        expect(cmpTrigger()!.textContent).toContain('Custom period');
+        expect(cmpTrigger()!.textContent).toContain('vs custom period');
         expect(cmpTrigger()!.textContent).toContain('1–30 Mar 2026');
 
         fixture.componentRef.setInput('comparison', 'prev-year-by-day');
         fixture.detectChanges();
         // Every other basis's NAME already determines its window, so no dates.
-        expect(cmpTrigger()!.textContent).toContain('Previous year by day');
+        expect(cmpTrigger()!.textContent).toContain('vs last year, same weekdays');
         expect(cmpTrigger()!.textContent).not.toContain('2026');
       });
 
@@ -795,7 +795,7 @@ describe('TimeframePickerComponent', () => {
         fixture.componentRef.setInput('customComparisonFrom', null);
         fixture.detectChanges();
 
-        expect(cmpTrigger()!.textContent!.trim()).toBe('Custom period');
+        expect(cmpTrigger()!.textContent!.trim()).toBe('vs custom period');
       });
 
       // ─── The mount host (PICKER-SHEET-A11Y-00) ────────────────────────────────────
@@ -918,11 +918,11 @@ describe('TimeframePickerComponent', () => {
       // assertions here — it is offered everywhere so a placed window survives a shape change.
       expect(labels()).toEqual([
         'No comparison',
-        'Previous month by day (Mon–Sun)',
-        'Previous month by date (DD/MM)',
-        'Previous year by day (Mon–Sun)',
-        'Dates last year (DD/MM)',
-        'Custom period',
+        'vs last month, same weekdays',
+        'vs last month, same dates',
+        'vs last year, same weekdays',
+        'vs same dates last year',
+        'vs custom period',
       ]);
 
       component.closeComparison();
@@ -938,11 +938,11 @@ describe('TimeframePickerComponent', () => {
 
       expect(labels()).toEqual([
         'No comparison',
-        'Previous day',
-        'Previous week',
-        'Previous year',
-        'Dates last year (DD/MM)',
-        'Custom period',
+        'vs previous day',
+        'vs previous week',
+        'vs previous year',
+        'vs same dates last year',
+        'vs custom period',
       ]);
     });
 
@@ -1000,7 +1000,7 @@ describe('TimeframePickerComponent', () => {
         // `value` and both spellings agree — the invariance half.
         openMenu(FOUR_YEARS);
 
-        expect(labels()).toEqual(['No comparison', 'Previous period', 'Custom period']);
+        expect(labels()).toEqual(['No comparison', 'vs previous period', 'vs custom period']);
       });
 
       it("switches to the clamped window's menu once the same range exceeds the cap", () => {
@@ -1012,7 +1012,7 @@ describe('TimeframePickerComponent', () => {
         // window is a whole calendar year and offers 'Previous year'. The raw range is
         // still `custom` and would offer 'Previous period' — a basis the resolver, working
         // from the clamped window, would not honour. That mismatch is what 02B forbids.
-        expect(labels()).toEqual(['No comparison', 'Previous year', 'Custom period']);
+        expect(labels()).toEqual(['No comparison', 'vs previous year', 'vs custom period']);
       });
     });
 
@@ -1022,7 +1022,7 @@ describe('TimeframePickerComponent', () => {
       cmpTrigger()!.click();
       fixture.detectChanges();
 
-      cmpOptions().find((o) => (o.textContent ?? '').includes('Previous year by day'))!.click();
+      cmpOptions().find((o) => (o.textContent ?? '').includes('vs last year, same weekdays'))!.click();
       fixture.detectChanges();
 
       expect(picked).toEqual(['prev-year-by-day']);
@@ -1035,7 +1035,7 @@ describe('TimeframePickerComponent', () => {
       cmpTrigger()!.click();
       fixture.detectChanges();
 
-      cmpOptions().find((o) => (o.textContent ?? '').includes('Previous month by day (Mon–Sun)'))!.click();
+      cmpOptions().find((o) => (o.textContent ?? '').includes('vs last month, same weekdays'))!.click();
       fixture.detectChanges();
 
       expect(picked).toEqual([]);
@@ -1094,7 +1094,7 @@ describe('TimeframePickerComponent', () => {
       cmpTrigger()!.click();
       fixture.detectChanges();
 
-      expect(labels()).toContain('Previous day');
+      expect(labels()).toContain('vs previous day');
       const selected = cmpOptions().filter((o) => o.getAttribute('aria-selected') === 'true');
       expect(selected.length).toBe(1);
     });
@@ -1139,7 +1139,7 @@ describe('TimeframePickerComponent', () => {
         cmpTrigger()!.click();
         fixture.detectChanges();
         tick(); // the menu focuses its selected option on the next macrotask
-        expect(document.activeElement).toBe(option('Previous month by day'));
+        expect(document.activeElement).toBe(option('vs last month, same weekdays'));
       }
 
       for (const desktop of [true, false]) {
@@ -1182,21 +1182,21 @@ describe('TimeframePickerComponent', () => {
 
         it(`CONTROL ${host}: picking a different basis`, fakeAsync(() => {
           openFromElsewhere(desktop);
-          option('Previous year by day').click();
+          option('vs last year, same weekdays').click();
           fixture.detectChanges();
           expect(document.activeElement).toBe(cmpTrigger());
         }));
 
         it(`CONTROL ${host}: re-picking the current basis`, fakeAsync(() => {
           openFromElsewhere(desktop);
-          option('Previous month by day').click();
+          option('vs last month, same weekdays').click();
           fixture.detectChanges();
           expect(document.activeElement).toBe(cmpTrigger());
         }));
 
-        it(`CONTROL ${host}: 'Custom period' then Cancel`, fakeAsync(() => {
+        it(`CONTROL ${host}: 'vs custom period' then Cancel`, fakeAsync(() => {
           openFromElsewhere(desktop);
-          option('Custom period').click();
+          option('vs custom period').click();
           fixture.detectChanges();
           const panel =
             document.querySelector('.dn-comparison-start-overlay-panel') ??
@@ -1222,7 +1222,7 @@ describe('TimeframePickerComponent', () => {
           cmpTrigger()!.click();
           fixture.detectChanges();
           tick();
-          expect(document.activeElement).toBe(option('Previous month by day'));
+          expect(document.activeElement).toBe(option('vs last month, same weekdays'));
         }
 
         for (const desktop of [true, false]) {
@@ -1262,7 +1262,7 @@ describe('TimeframePickerComponent', () => {
 
           it(`${host}: picking a different basis`, fakeAsync(() => {
             openFromBody(desktop);
-            option('Previous year by day').click();
+            option('vs last year, same weekdays').click();
             fixture.detectChanges();
             expect(document.activeElement).toBe(cmpTrigger());
           }));
@@ -1282,11 +1282,11 @@ describe('TimeframePickerComponent', () => {
       it('Tab commits nothing, even after arrowing to another option', fakeAsync(() => {
         openFromElsewhere(true);
         press('ArrowDown');
-        expect(document.activeElement).not.toBe(option('Previous month by day'));
+        expect(document.activeElement).not.toBe(option('vs last month, same weekdays'));
         press('Tab');
         fixture.detectChanges();
         expect(picked).toEqual([]);
-        expect(cmpTrigger()!.textContent).toContain('Previous month by day');
+        expect(cmpTrigger()!.textContent).toContain('vs last month, same weekdays');
       }));
     });
   });
@@ -1395,7 +1395,7 @@ describe('TimeframePickerComponent', () => {
         document.querySelectorAll<HTMLButtonElement>(
           '.dn-comparison-overlay-panel [role="option"]',
         ),
-      ).find((o) => (o.textContent ?? '').includes('Custom period'))!;
+      ).find((o) => (o.textContent ?? '').includes('vs custom period'))!;
 
       // Only now — the menu above opened through the same `position()` builder.
       const spies = spyOnNextStrategy();

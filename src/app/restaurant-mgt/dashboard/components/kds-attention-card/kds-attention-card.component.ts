@@ -63,8 +63,8 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
               >
                 {{ statusConfig.label }}
               </span>
-              <a routerLink="/kitchen" target="_blank" rel="noopener" aria-label="Open Expo (opens in a new tab)" class="text-xs sm:text-sm text-foreground hover:underline flex items-center gap-0.5 font-medium whitespace-nowrap">
-                <span class="hidden sm:inline">Open </span>Expo <span class="text-base sm:text-lg leading-none">›</span>
+              <a routerLink="/kitchen" target="_blank" rel="noopener" aria-label="Open kitchen board (opens in a new tab)" class="text-xs sm:text-sm text-foreground hover:underline flex items-center gap-0.5 font-medium whitespace-nowrap">
+                <span class="hidden sm:inline">Open </span>Kitchen board <span class="text-base sm:text-lg leading-none">›</span>
               </a>
             </div>
           </div>
@@ -169,13 +169,13 @@ const STATUS_CONFIG: Record<KitchenStatus, { label: string; badgeClass: string }
               <svg aria-hidden="true" class="w-3.5 h-3.5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
-              <span class="font-medium">Expo: last action 18s ago</span>
+              <span class="font-medium">Kitchen board: last action 18s ago</span>
             </div>
           </div>
 
           <!-- Footer -->
           <p class="text-xs text-muted-foreground text-center">
-            Live from Expo
+            Live from the kitchen board
           </p>
         </div>
       </app-dn-card>

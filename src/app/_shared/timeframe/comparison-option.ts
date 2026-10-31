@@ -119,9 +119,9 @@ export const COMPARISON_OPTIONS: ComparisonOption[] = [
  */
 const COMPARISON_LABELS: Record<ComparisonOption, { menu: string; caption: string }> = {
   none: { menu: 'No comparison', caption: '' },
-  'prev-period': { menu: 'Previous period', caption: 'vs previous period' },
-  'prev-day': { menu: 'Previous day', caption: 'vs previous day' },
-  'prev-week': { menu: 'Previous week', caption: 'vs previous week' },
+  'prev-period': { menu: 'vs previous period', caption: 'vs previous period' },
+  'prev-day': { menu: 'vs previous day', caption: 'vs previous day' },
+  'prev-week': { menu: 'vs previous week', caption: 'vs previous week' },
   // THE CAPTION NAMES THE WINDOW, NOT THE PAIRING. `prev-month-by-day` and
   // `prev-month-by-date` resolve to the SAME window, so their delta chips show identical
   // numbers — captioning them differently would imply a difference the figures do not
@@ -132,17 +132,18 @@ const COMPARISON_LABELS: Record<ComparisonOption, { menu: string; caption: strin
   // is offered at day and week level TOO, where "same month last year" would be simply
   // false, so its caption has to stay shape-agnostic. Unifying the two to satisfy the rule
   // above would break the shapes that rule was never about — the divergence is intended.
-  'prev-month-by-day': { menu: 'Previous month by day (Mon–Sun)', caption: 'vs previous month' },
-  'prev-month-by-date': { menu: 'Previous month by date (DD/MM)', caption: 'vs previous month' },
-  'prev-year': { menu: 'Previous year', caption: 'vs previous year' },
+  'prev-month-by-day': { menu: 'vs last month, same weekdays', caption: 'vs previous month' },
+  'prev-month-by-date': { menu: 'vs last month, same dates', caption: 'vs previous month' },
+  'prev-year': { menu: 'vs previous year', caption: 'vs previous year' },
   'prev-year-by-day': {
-    menu: 'Previous year by day (Mon–Sun)',
+    menu: 'vs last year, same weekdays',
     caption: 'vs same month last year',
   },
-  // The "(DD/MM)" qualifier earns its place in the MENU, where it is what distinguishes
-  // these entries from the "by day" ones sitting directly above them. On a chip, beside a
-  // number, it is noise.
-  'dates-last-year': { menu: 'Dates last year (DD/MM)', caption: 'vs dates last year' },
+  // Menu labels are plain words ("same weekdays" / "same dates"), never "(Mon–Sun)" /
+  // "(DD/MM)" notation: a café owner should not have to decode a label to pick one. Every
+  // entry but `none` starts with "vs", because the picker's trigger shows the label on its
+  // own, beside the date range, and has to read as a comparison there.
+  'dates-last-year': { menu: 'vs same dates last year', caption: 'vs same dates last year' },
   // "period", not "range" — the control behind this entry picks ONE date and derives the
   // end from the primary's length. Calling it a range would promise a two-ended calendar
   // whose end then silently snaps, and a control that lies about what it does is worse
@@ -150,7 +151,7 @@ const COMPARISON_LABELS: Record<ComparisonOption, { menu: string; caption: strin
   //
   // The MENU label is bare, but the picker's TRIGGER appends the resolved dates for this id
   // alone — see `comparisonTriggerLabel` in the picker for why that asymmetry is correct.
-  custom: { menu: 'Custom period', caption: 'vs custom period' },
+  custom: { menu: 'vs custom period', caption: 'vs custom period' },
 };
 
 /** Dropdown label, e.g. "Previous month". */

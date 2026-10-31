@@ -76,7 +76,7 @@ export class SettingsHubComponent {
           module: 'billing',
         },
         {
-          label: 'Preset tags',
+          label: 'Dietary & allergen labels',
           description: 'Dietary and descriptor tags diners see on your menu.',
           icon: 'preset-tags',
           route: '/settings/preset-tags',

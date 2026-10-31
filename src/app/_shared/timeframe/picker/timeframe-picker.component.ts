@@ -174,7 +174,7 @@ export function timeframeOverlayPositions(): ConnectedPosition[] {
         cdkOverlayOrigin
         #cmpOrigin="cdkOverlayOrigin"
         class="h-[38px] inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        [attr.aria-label]="'Compare against: ' + comparisonTriggerLabel + '. Activate to change.'"
+        [attr.aria-label]="'Comparison: ' + comparisonTriggerLabel + '. Activate to change.'"
         aria-haspopup="listbox"
         [attr.aria-expanded]="cmpOpen"
         (click)="toggleComparison()"

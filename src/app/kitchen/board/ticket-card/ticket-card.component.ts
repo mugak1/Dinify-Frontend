@@ -193,8 +193,8 @@ export class TicketCardComponent {
   get advanceLabel(): string {
     switch (this.ticket.fulfilment_status) {
       case 'new': return 'Start';
-      case 'preparing': return 'Ready';
-      case 'ready': return 'Served';
+      case 'preparing': return 'Mark ready';
+      case 'ready': return 'Mark served';
       default: return '';
     }
   }

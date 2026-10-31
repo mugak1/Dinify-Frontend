@@ -213,11 +213,11 @@ describe('period arrows — both timeframe hosts', () => {
 
         expect(cmpLabels()).toEqual([
           'No comparison',
-          'Previous month by day (Mon–Sun)',
-          'Previous month by date (DD/MM)',
-          'Previous year by day (Mon–Sun)',
-          'Dates last year (DD/MM)',
-          'Custom period',
+          'vs last month, same weekdays',
+          'vs last month, same dates',
+          'vs last year, same weekdays',
+          'vs same dates last year',
+          'vs custom period',
         ]);
       });
     }

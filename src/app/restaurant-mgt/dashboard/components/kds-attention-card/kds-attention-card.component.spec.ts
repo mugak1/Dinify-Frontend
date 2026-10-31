@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { KdsAttentionCardComponent } from './kds-attention-card.component';
 import { getMockKdsData } from '../../data/dashboard-mock-data';
 
-describe('KdsAttentionCardComponent — Open Expo link', () => {
+describe('KdsAttentionCardComponent — Open kitchen board link', () => {
   it('opens the Kitchen board in a new tab', async () => {
     await TestBed.configureTestingModule({
       imports: [KdsAttentionCardComponent],

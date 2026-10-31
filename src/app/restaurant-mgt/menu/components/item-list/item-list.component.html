@@ -5,7 +5,7 @@
     <p class="text-sm text-muted-foreground">
       {{ selectionMode ? 'Tap items to select'
       : itemReorderMode ? 'Drag items to reorder'
-      : 'Manage your menu items' }}
+      : '' }}
     </p>
     <div class="flex items-center gap-2">
       @if ((sortMode$ | async) === 'manual' && !selectionMode) {

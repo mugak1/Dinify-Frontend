@@ -70,6 +70,18 @@ describe('TicketCardComponent', () => {
     expect(text).toContain('Shellfish');
   });
 
+  it('names the advance action as a verb, never as the status it moves to', () => {
+    // "READY" on a button reads as a state the ticket is already in; staff tapped it
+    // to mean "make it ready". The action says so.
+    const label = (status: KitchenTicket['fulfilment_status']): string => {
+      component.ticket = makeTicket({ fulfilment_status: status });
+      return component.advanceLabel;
+    };
+    expect(label('new')).toBe('Start');
+    expect(label('preparing')).toBe('Mark ready');
+    expect(label('ready')).toBe('Mark served');
+  });
+
   it('applies the overdue escalation class past the threshold', () => {
     component.ticket = makeTicket({ created_at: new Date(Date.now() - OVERDUE_MS - 1000).toISOString() });
     component.now = Date.now();
