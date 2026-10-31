@@ -2,16 +2,22 @@
   <!-- Header -->
   <app-page-header
     title="Notifications"
-    description="Updates from Dinify and your restaurant."
+    description="What needs your attention at this restaurant."
     >
-    @if (unreadCount > 0) {
-      <app-dn-badge actions variant="destructive">{{ unreadCount }} unread</app-dn-badge>
+    @if (state === 'ready' && unreadCount > 0) {
+      <div actions class="flex items-center gap-3">
+        <app-dn-badge variant="default" data-testid="unread-badge">{{ unreadCount }} unread</app-dn-badge>
+        <button app-dn-button variant="outline" size="sm" type="button"
+          data-testid="mark-all-read"
+          [disabled]="markingAll"
+          (click)="markAllRead()">Mark all as read</button>
+      </div>
     }
   </app-page-header>
 
   <!-- Loading -->
   @if (state === 'loading') {
-    <div class="space-y-3">
+    <div class="space-y-3" data-testid="notifications-loading" aria-busy="true">
       @for (i of [1, 2, 3]; track i) {
         <div class="h-[72px] rounded-lg border border-gray-200 bg-card animate-pulse"></div>
       }
@@ -20,52 +26,77 @@
 
   <!-- Error -->
   @if (state === 'error') {
-    <app-dn-card>
-      <div class="p-8 text-center">
+    <app-dn-card data-testid="notifications-error">
+      <div class="p-8 text-center" role="alert">
         <p class="text-sm text-muted-foreground mb-4">We couldn't load your notifications.</p>
-        <button app-dn-button variant="outline" (click)="load()">Try again</button>
+        <button app-dn-button variant="outline" type="button" data-testid="notifications-retry" (click)="load()">Try again</button>
       </div>
     </app-dn-card>
   }
 
   <!-- Empty -->
   @if (state === 'empty') {
-    <app-dn-card>
+    <app-dn-card data-testid="notifications-empty">
       <div class="p-10 text-center">
         <div class="flex items-center justify-center w-12 h-12 mx-auto mb-3 rounded-full bg-muted text-muted-foreground">
-          <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <svg class="h-6 w-6" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         </div>
         <p class="text-base font-semibold text-foreground mb-1">You're all caught up</p>
-        <p class="text-sm text-muted-foreground">New notifications will show up here.</p>
+        <p class="text-sm text-muted-foreground">Low reviews, dishes sold out from the kitchen and changes to ordering will show up here.</p>
       </div>
     </app-dn-card>
   }
 
   <!-- List -->
   @if (state === 'ready') {
-    <div class="space-y-3">
-      @for (n of notifys; track n) {
-        <app-dn-card>
-          <button type="button" (click)="toggle(n)"
-            class="w-full text-left p-4 flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
-            [attr.aria-expanded]="expandedId === n._id">
-            <!-- Unread dot (brand red) replaces the legacy bg-gray-200 row tint. -->
-            <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" [class.bg-primary]="!n.read" [class.bg-transparent]="n.read" aria-hidden="true"></span>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-baseline justify-between gap-3">
-                <p class="text-foreground truncate" [class.font-bold]="!n.read" [class.font-medium]="n.read">{{ n.subject }}</p>
-                <span class="shrink-0 text-xs text-muted-foreground">{{ n.creation_timestamp.timestamp | date:'MMM d, h:mm a' }}</span>
-              </div>
-              @if (expandedId === n._id) {
-                <div class="mt-2 text-sm text-muted-foreground break-words [&_a]:text-foreground [&_a]:underline"
-                [innerHTML]="(n.email || n.sms) | safe:'html'"></div>
+    <ul class="space-y-3" data-testid="notifications-list">
+      @for (n of items; track n.id) {
+        <li>
+          <app-dn-card>
+            <button type="button" (click)="open(n)"
+              data-testid="notification-row"
+              [attr.data-read]="n.read"
+              class="w-full text-left p-4 flex items-start gap-3 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg">
+              <!-- Unread dot (the reviewed exception in the colour-roles allowlist). -->
+              <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" [class.bg-primary]="!n.read" [class.bg-transparent]="n.read" aria-hidden="true"></span>
+              <span class="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true">
+                @switch (view(n).icon) {
+                  @case ('review') {
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  }
+                  @case ('sold-out') {
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></svg>
+                  }
+                  @case ('paused') {
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg>
+                  }
+                  @case ('resumed') {
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5 3.5-5 3.5z"/></svg>
+                  }
+                  @default {
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                  }
+                }
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex items-baseline justify-between gap-3">
+                  <span class="text-foreground truncate" data-testid="notification-title" [class.font-bold]="!n.read" [class.font-medium]="n.read">{{ view(n).title }}</span>
+                  <span class="shrink-0 text-xs text-muted-foreground">{{ n.occurred_at | date:'MMM d, h:mm a' }}</span>
+                </span>
+                @if (view(n).detail) {
+                  <span class="mt-1 block text-sm text-muted-foreground" data-testid="notification-detail">{{ view(n).detail }}</span>
+                }
+                @if (!n.read) {
+                  <span class="sr-only">Unread.</span>
+                }
+              </span>
+              @if (view(n).link) {
+                <svg class="h-4 w-4 mt-1 shrink-0 text-muted-foreground" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
               }
-            </div>
-            <svg class="h-4 w-4 mt-1 shrink-0 text-muted-foreground transition-transform" [class.rotate-180]="expandedId === n._id"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-        </app-dn-card>
+            </button>
+          </app-dn-card>
+        </li>
       }
-    </div>
+    </ul>
   }
 </div>

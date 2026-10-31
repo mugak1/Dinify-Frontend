@@ -7,6 +7,7 @@ import { roleLabel } from '../../settings/team/members/staff-roles';
 import { SessionActionsService } from '../session-actions.service';
 import { RestaurantSwitchService } from '../restaurant-switch.service';
 import { RestaurantRole } from '../../../_models/app.models';
+import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 // The dashboard date-range pills used to live here, gated on a
 // `DashboardService.isDashboardActive$` flag that existed for no other reason. They moved
@@ -17,7 +18,7 @@ import { RestaurantRole } from '../../../_models/app.models';
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-top-nav',
   standalone: true,
-  imports: [CommonModule, RouterLink, AvatarComponent, ...DN_MENU],
+  imports: [CommonModule, RouterLink, AvatarComponent, NotificationBellComponent, ...DN_MENU],
   templateUrl: './top-nav.component.html',
 })
 export class TopNavComponent {

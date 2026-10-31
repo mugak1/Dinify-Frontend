@@ -6,6 +6,7 @@ import { AuthenticationService } from '../../../_services/authentication.service
 import { SessionActionsService } from '../session-actions.service';
 import { RestaurantSwitchService } from '../restaurant-switch.service';
 import { signal } from '@angular/core';
+import { NotificationInboxService } from '../notification-inbox.service';
 
 describe('TopNavComponent', () => {
   let fixture: ComponentFixture<TopNavComponent>;
@@ -28,7 +29,10 @@ describe('TopNavComponent', () => {
     requestSwitch: jasmine.Spy;
   };
 
+  let inbox: { unreadCount: ReturnType<typeof signal<number | null>>; start: jasmine.Spy; stop: jasmine.Spy };
+
   beforeEach(async () => {
+    inbox = { unreadCount: signal<number | null>(null), start: jasmine.createSpy('start'), stop: jasmine.createSpy('stop') };
     auth = {
       currentRestaurant: null,
       currentRestaurantRole: { restaurant: 'Test Bistro', roles: ['kitchen'] },
@@ -54,6 +58,8 @@ describe('TopNavComponent', () => {
         { provide: AuthenticationService, useValue: auth },
         { provide: SessionActionsService, useValue: { confirmSignOut } },
         { provide: RestaurantSwitchService, useValue: switcher },
+        // The bell's count source, stubbed: the bell itself has its own spec.
+        { provide: NotificationInboxService, useValue: inbox },
       ],
     }).compileComponents();
 
@@ -94,6 +100,24 @@ describe('TopNavComponent', () => {
     fixture.componentRef.setInput('menuExpanded', true);
     fixture.detectChanges();
     expect(btn.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  describe('notifications bell (SHELL-FINISH-00 PR 5)', () => {
+    it('sits on the right, before the avatar, and opens /notifications', () => {
+      const bar = fixture.nativeElement.querySelector('[data-testid="top-bar"]') as HTMLElement;
+      const bell = bar.querySelector('[data-testid="notification-bell"]') as HTMLAnchorElement;
+      const avatar = bar.querySelector('[data-testid="account-menu-trigger"]') as HTMLElement;
+      expect(bell).not.toBeNull();
+      expect(bell.getAttribute('href')).toBe('/notifications');
+      // DOCUMENT_POSITION_FOLLOWING: the avatar comes after the bell.
+      expect(bell.compareDocumentPosition(avatar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('starts the count polling with the bar and stops it with the bar', () => {
+      expect(inbox.start).toHaveBeenCalledTimes(1);
+      fixture.destroy();
+      expect(inbox.stop).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('account menu', () => {
