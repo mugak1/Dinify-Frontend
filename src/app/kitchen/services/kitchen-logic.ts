@@ -29,16 +29,26 @@ export const STATUS_ORDER: readonly FulfilmentStatus[] = [
 ];
 
 /**
+ * THE start time a ticket ages from: when its round was released to the kitchen,
+ * or `created_at` when the server gave no readable release time (an older server,
+ * an older order, or a value `readReleasedAt` refused). Every age, threshold and
+ * sort on the board reads it, so they cannot disagree about one ticket.
+ */
+export function ticketStartedAt(ticket: Pick<KitchenTicket, 'created_at' | 'released_at'>): string {
+  return ticket.released_at ?? ticket.created_at;
+}
+
+/**
  * Age-based escalation. A served ticket is always calm — escalation tracks
  * how long a ticket has been WAITING, which stops the moment it's served.
  */
 export function classifyEscalation(
-  created_at: string,
+  started_at: string,
   served_at: string | null,
   now: number,
 ): EscalationLevel {
   if (served_at) return 'normal';
-  const age = now - new Date(created_at).getTime();
+  const age = now - new Date(started_at).getTime();
   if (age >= OVERDUE_MS) return 'overdue';
   if (age >= WARNING_MS) return 'warning';
   return 'normal';
@@ -91,8 +101,8 @@ export function isWithinRecallWindow(ticket: KitchenTicket, now: number): boolea
 }
 
 /**
- * Board sort order: priority tickets first, then oldest created_at first
- * (FIFO within each priority band).
+ * Board sort order: priority tickets first, then oldest START first
+ * (`ticketStartedAt`; FIFO within each priority band).
  */
 export function sortTickets(
   tickets: readonly KitchenTicket[],
@@ -100,7 +110,7 @@ export function sortTickets(
 ): KitchenTicket[] {
   return [...tickets].sort((a, b) => {
     if (a.priority !== b.priority) return a.priority ? -1 : 1;
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return new Date(ticketStartedAt(a)).getTime() - new Date(ticketStartedAt(b)).getTime();
   });
 }
 
@@ -109,9 +119,9 @@ export function formatOrderNumber(n: number): string {
   return '#' + String(n).padStart(3, '0');
 }
 
-/** Ticket age in ms (never negative). */
-export function ageMs(created_at: string, now: number): number {
-  return Math.max(0, now - new Date(created_at).getTime());
+/** Ticket age in ms from its start time (never negative). */
+export function ageMs(started_at: string, now: number): number {
+  return Math.max(0, now - new Date(started_at).getTime());
 }
 
 /**
@@ -129,8 +139,8 @@ export function formatServedAgo(served_at: string, now: number): string {
 }
 
 /** Compact age display: "m:ss" under an hour, else "h:mm:ss". */
-export function formatAge(created_at: string, now: number): string {
-  const totalSec = Math.floor(ageMs(created_at, now) / 1000);
+export function formatAge(started_at: string, now: number): string {
+  const totalSec = Math.floor(ageMs(started_at, now) / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;

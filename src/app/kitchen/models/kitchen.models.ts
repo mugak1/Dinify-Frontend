@@ -73,8 +73,17 @@ export interface KitchenTicket {
   order_source: 'diner_self_service' | 'server_assisted';
   fulfilment_status: 'new' | 'preparing' | 'ready' | 'served';
   priority: boolean;
-  /** ISO timestamp — drives age/escalation. */
+  /** ISO timestamp — when the order was created. Ages the ticket only when
+   *  `released_at` is absent (see `ticketStartedAt`). */
   created_at: string;
+  /**
+   * Step 2: when the round was RELEASED to the kitchen, which can be later than
+   * `created_at` when staff hold a round first. Optional, and present ONLY when
+   * the server sent a readable, offset-bearing timestamp: absent, `null` and
+   * unparseable values are all dropped by `readReleasedAt` in the wire parser,
+   * so nothing is ever invented here. Older servers and older orders omit it.
+   */
+  released_at?: string;
   /** ISO timestamp — set when served; drives the recall window. */
   served_at: string | null;
   items: KitchenTicketItem[];

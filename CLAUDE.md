@@ -2015,6 +2015,20 @@ so keep it current when conventions change.
   display. Do not "fix" this by treating the board's polling as activity, and
   do not detect the board by reading `router.url`. Pinned by
   `_services/inactivity.service.spec.ts`
+  **A TICKET AGES FROM WHEN ITS ROUND WAS RELEASED (Step 2 FE-A).** In Step 2 a
+  diner's round can be held for staff before it reaches the kitchen, so ageing
+  from `created_at` would land a just-released ticket on the board already amber
+  or red. Backend BE-C adds an OPTIONAL `released_at` to each ticket. The wire
+  parser keeps it only as an offset-bearing ISO instant (`readReleasedAt` in
+  `kitchen-wire.ts`); absent, `null`, naive, unparseable or non-string values all
+  mean "not given", the key is left ABSENT and no value is invented (the D07
+  rule), and a bad value never refuses the feed. **Every start-time consumer reads
+  `ticketStartedAt(t)` = `released_at ?? created_at`** (`kitchen-logic.ts`): the
+  card's age and colour (`ticket-card.component.ts`), the board's overdue check,
+  overdue cue, first-overdue / oldest / newest jumps (`board.component.ts`) and the
+  active sort (`sortTickets`). Do not read `created_at` directly for any of those.
+  Against a server without the field nothing changes. Pinned by
+  `kitchen/board/kitchen-age-from-release.spec.ts`
   **THE COMMAND CONTRACT CHANGED WITH D05, AND THE CLIENT NO LONGER GUESSES AN
   OUTCOME.** Every kitchen mutation now names an explicit ACTION (`advance` /
   `serve` / `correct` / `recall`, or the priority/cancel route) and a REQUIRED
