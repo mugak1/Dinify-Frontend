@@ -1,162 +1,67 @@
-<div class="bg-card rounded-lg border p-4 space-y-4">
-  <div class="flex flex-wrap items-center gap-2">
+<div class="bg-card rounded-lg border p-3 sm:p-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <!-- N waiting — the server's count, never recomputed here -->
+    <p
+      data-testid="waiting-count"
+      class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold"
+      [class.bg-amber-100]="!!waiting"
+      [class.text-amber-900]="!!waiting"
+      [class.bg-secondary]="!waiting"
+      [class.text-secondary-foreground]="!waiting"
+      aria-live="polite"
+    >
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      {{ waiting ?? '–' }} waiting
+    </p>
 
-    <!-- ── Area Selector Pills ── -->
-    <div class="flex bg-muted rounded-md p-0.5">
-      <button
-        type="button"
-        (click)="selectArea('all')"
-        [class]="filters.area === 'all'
-          ? 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
-          : 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
-      >All areas</button>
-      @for (area of activeAreas; track area.id) {
-        <button
-          type="button"
-          (click)="selectArea(area.id)"
-          [class]="filters.area === area.id
-            ? 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all bg-card text-foreground shadow-sm'
-            : 'px-3 py-1.5 text-xs font-medium rounded-sm transition-all text-muted-foreground hover:text-foreground'"
-        >{{ area.name }}</button>
-      }
+    <!-- Search -->
+    <div class="relative flex-1 min-w-[180px] max-w-[280px]">
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input
+        type="search"
+        data-testid="floor-search"
+        aria-label="Search tables"
+        placeholder="Search tables"
+        [ngModel]="search"
+        (ngModelChange)="searchChange.emit($event)"
+        class="w-full pl-8 h-9 text-sm rounded-md border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-ring"
+      />
     </div>
 
-    <!-- ── Shift Selector ── -->
-    <select class="h-8 text-xs rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-2 focus:ring-ring">
-      <option value="now">Now (live)</option>
-      <option value="lunch">Lunch</option>
-      <option value="dinner">Dinner</option>
-      <option value="custom">Custom…</option>
-    </select>
-
-    <div class="h-6 w-px bg-border"></div>
-
-    <!-- ── Status Filter Dropdown ── -->
+    <!-- Status filter -->
     <div class="relative">
       <button
         type="button"
-        class="h-8 text-xs inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 hover:bg-accent hover:text-accent-foreground"
-        (click)="showStatusDropdown = !showStatusDropdown; showServerDropdown = false; showSizeDropdown = false"
+        data-testid="status-filter"
+        class="h-9 text-sm inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 hover:bg-accent hover:text-accent-foreground"
+        [attr.aria-expanded]="showStatusDropdown"
+        (click)="showStatusDropdown = !showStatusDropdown"
       >
         Status
-        @if (filters.status.length > 0) {
-          <app-dn-badge variant="default" class="text-[9px] ml-0.5">{{ filters.status.length }}</app-dn-badge>
+        @if (statuses.length > 0) {
+          <app-dn-badge variant="default" class="text-micro ml-0.5">{{ statuses.length }}</app-dn-badge>
         }
         <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       @if (showStatusDropdown) {
-        <div class="absolute left-0 top-full mt-1 w-48 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showStatusDropdown = false">
+        <div class="absolute left-0 top-full mt-1 w-52 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showStatusDropdown = false">
           @for (opt of statusOptions; track opt.value) {
-            <label class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent cursor-pointer">
+            <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent cursor-pointer">
               <input
                 type="checkbox"
-                class="h-3.5 w-3.5 rounded border-input"
-                [checked]="filters.status.includes(opt.value)"
+                class="h-4 w-4 rounded border-input"
+                [attr.data-status]="opt.value"
+                [checked]="statuses.includes(opt.value)"
                 (change)="toggleStatus(opt.value)"
               />
               {{ opt.label }}
             </label>
           }
-        </div>
-      }
-    </div>
-
-    <!-- ── Server Filter Dropdown ── -->
-    <div class="relative">
-      <button
-        type="button"
-        class="h-8 text-xs inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 hover:bg-accent hover:text-accent-foreground"
-        (click)="showServerDropdown = !showServerDropdown; showStatusDropdown = false; showSizeDropdown = false"
-      >
-        Server
-        @if (filters.servers.length > 0) {
-          <app-dn-badge variant="default" class="text-[9px] ml-0.5">{{ filters.servers.length }}</app-dn-badge>
-        }
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      @if (showServerDropdown) {
-        <div class="absolute left-0 top-full mt-1 w-48 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showServerDropdown = false">
-          @for (srv of servers; track srv.id) {
-            <label class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent cursor-pointer">
-              <input
-                type="checkbox"
-                class="h-3.5 w-3.5 rounded border-input"
-                [checked]="filters.servers.includes(srv.id)"
-                (change)="toggleServer(srv.id)"
-              />
-              {{ srv.name }}
-            </label>
-          }
-          <label class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent cursor-pointer">
-            <input
-              type="checkbox"
-              class="h-3.5 w-3.5 rounded border-input"
-              [checked]="filters.servers.includes('unassigned')"
-              (change)="toggleServer('unassigned')"
-            />
-            Unassigned
-          </label>
-        </div>
-      }
-    </div>
-
-    <!-- ── Size Filter Dropdown ── -->
-    <div class="relative">
-      <button
-        type="button"
-        class="h-8 text-xs inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 hover:bg-accent hover:text-accent-foreground"
-        (click)="showSizeDropdown = !showSizeDropdown; showStatusDropdown = false; showServerDropdown = false"
-      >
-        Size
-        @if (filters.tableSize.length > 0) {
-          <app-dn-badge variant="default" class="text-[9px] ml-0.5">{{ filters.tableSize.length }}</app-dn-badge>
-        }
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      @if (showSizeDropdown) {
-        <div class="absolute left-0 top-full mt-1 w-32 bg-card rounded-md shadow-lg border z-20 py-1" (mouseleave)="showSizeDropdown = false">
-          @for (size of tableSizeOptions; track size) {
-            <label class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent cursor-pointer">
-              <input
-                type="checkbox"
-                class="h-3.5 w-3.5 rounded border-input"
-                [checked]="filters.tableSize.includes(size)"
-                (change)="toggleSize(size)"
-              />
-              {{ size === 6 ? '6+' : size }} seats
-            </label>
+          @if (statuses.length > 0) {
+            <button type="button" class="w-full text-left px-3 py-2 text-sm text-foreground underline-offset-4 hover:underline" (click)="clearStatuses()">Clear</button>
           }
         </div>
       }
-    </div>
-
-    <!-- ── Search Input ── -->
-    <div class="relative flex-1 min-w-[180px] max-w-[280px]">
-      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input
-        type="text"
-        placeholder="Search table # or guest"
-        [ngModel]="filters.search"
-        (ngModelChange)="updateSearch($event)"
-        class="w-full pl-8 h-8 text-xs rounded-md border border-input bg-background px-3 focus:outline-none focus:ring-2 focus:ring-ring"
-      />
-    </div>
-
-    <!-- ── Metrics Strip ── -->
-    <div class="ml-auto flex items-center gap-4 text-xs text-muted-foreground">
-      <span class="flex items-center gap-1">
-        <!-- Users icon -->
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span class="font-semibold text-foreground">{{ metrics.inUse }}</span> / {{ metrics.total }} tables
-      </span>
-      <span>
-        <span class="font-semibold text-foreground">{{ metrics.guestsSeated }}</span> guests
-      </span>
-      <span class="flex items-center gap-1">
-        <!-- Clock icon -->
-        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span class="font-semibold text-foreground">{{ metrics.avgTableTime }}</span> min avg
-      </span>
     </div>
   </div>
 </div>

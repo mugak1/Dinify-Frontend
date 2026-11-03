@@ -1,9 +1,23 @@
 <div class="space-y-4 sm:space-y-6">
   <!-- Page Header -->
-  <app-page-header title="Tables"></app-page-header>
+  <app-page-header title="Tables">
+    <!-- The Floor/Setup toggle exists only where the floor view may be shown: a
+         development build while the floor runs on mock data (see TablesComponent). -->
+    @if (floorViewAvailable) {
+      <div actions>
+        <app-dn-segmented
+          ariaLabel="Tables view"
+          [items]="viewItems"
+          [value]="activeView"
+          (valueChange)="setView($event)"
+        ></app-dn-segmented>
+      </div>
+    }
+  </app-page-header>
 
-  <!-- View Content — Service View is parked for MVP; only the Setup View ships. -->
-  @if (activeView === 'setup') {
+  @if (activeView === 'service' && floorViewAvailable) {
+    <app-tables-service-view />
+  } @else {
     <app-tables-setup-view />
   }
 </div>

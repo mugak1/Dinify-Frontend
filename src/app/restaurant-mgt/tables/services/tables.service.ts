@@ -126,6 +126,19 @@ export class TablesService {
 
   // ── Mutation methods ──────────────────────────────────
 
+  /**
+   * RETIRED (Step 2). Its real branch sent `status` in a PUT to
+   * `restaurant-setup/tables/`, which the backend silently ignores — so every status
+   * action that used it reported a change the server never made. The floor view's
+   * status actions go through `FloorService.setTableStatus` instead (FE-C points that
+   * at `table-actions/update-status/`).
+   *
+   * The real branch now fails loudly rather than sending a request that does nothing.
+   * The mock branch is kept for the parked Service-View helpers (`seatWalkIn`,
+   * `transferTable`) that still call it in mock mode.
+   *
+   * @deprecated Use `FloorService.setTableStatus`.
+   */
   updateTableStatus(tableId: string, status: TableStatus): Observable<any> {
     if (USE_MOCK_SETUP) {
       const tables = this.tables$.value.map(t =>
@@ -134,10 +147,12 @@ export class TablesService {
       this.tables$.next(tables);
       return of(null);
     }
-    return this.api.postPatch(
-      'restaurant-setup/tables/',
-      { id: tableId, status },
-      'put', '', {}, false, '', true,
+    return throwError(
+      () =>
+        new Error(
+          'TablesService.updateTableStatus is retired: the backend ignores status on ' +
+            'restaurant-setup/tables/. Use FloorService.setTableStatus.',
+        ),
     );
   }
 

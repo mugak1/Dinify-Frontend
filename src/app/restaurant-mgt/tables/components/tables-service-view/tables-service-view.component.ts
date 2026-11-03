@@ -1,419 +1,338 @@
-import { ChangeDetectionStrategy, Component, OnInit, OnDestroy } from '@angular/core';
-
-import { Subject, combineLatest } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, Subscription, takeUntil, timer } from 'rxjs';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
-import { LocalStorageService } from '../../../../_services/storage/local-storage.service';
-import { PersistedValue } from '../../../../_services/storage/persisted-state';
-import { TablesService } from '../../services/tables.service';
-import { ServiceToolbarComponent, ServiceMetrics } from '../service-toolbar/service-toolbar.component';
+import { FloorService } from '../../services/floor.service';
+import { ServiceToolbarComponent } from '../service-toolbar/service-toolbar.component';
 import { FloorPlanCanvasComponent } from '../floor-plan-canvas/floor-plan-canvas.component';
-import { ReservationsPaneComponent } from '../reservations-pane/reservations-pane.component';
-import { NewReservationModalComponent } from '../new-reservation-modal/new-reservation-modal.component';
-import { TableDetailsDrawerComponent } from '../table-details-drawer/table-details-drawer.component';
-import { TransferTableModalComponent } from '../transfer-table-modal/transfer-table-modal.component';
+import { DetailState, TableDetailsDrawerComponent } from '../table-details-drawer/table-details-drawer.component';
 import {
-  TableFilters,
-  DiningArea,
-  RestaurantTable,
-  Server,
-  Reservation,
-  WaitlistEntry,
-  SeatedParty,
-} from '../../models/tables.models';
-import { mockSeatedParties } from '../../data/tables-mock-data';
+  FloorSnapshot,
+  FloorStatusAction,
+  FloorTable,
+  FloorTableDetail,
+  FloorTableStatus,
+  RoundCommand,
+  RoundCommandAnswer,
+} from '../../models/floor.models';
+import {
+  STATUS_ACTIONS,
+  commandDoneMessage,
+  needsStaffFirst,
+  refusalMessage,
+  unknownAnswerMessage,
+} from '../../utils/floor-presentation';
 
+/** A copy of `record` without `key` (records here are replaced, never mutated). */
+function without<T>(record: Record<string, T>, key: string): Record<string, T> {
+  const copy = { ...record };
+  delete copy[key];
+  return copy;
+}
+
+interface Notice {
+  tableId: string;
+  text: string;
+}
+
+/**
+ * The floor view (Step 2) — the Tables page's Service view, rebuilt on floor contract
+ * v1 and `FloorService`.
+ *
+ * WHAT IT SHOWS: every table's state with its held and released rounds, the age of
+ * held rounds and the stale flag; tables that need staff first; a search, a status
+ * filter and the "N waiting" count; and the table drawer, where a held round is
+ * confirmed or declined and a table is marked dirty, available or out of service.
+ *
+ * WHAT IT DOES NOT. Reservations, the waitlist, seating, transfers, servers, notes,
+ * merge/split and anything about payment are not Step 2. Their components stay parked
+ * in the repo and none of them is rendered here. Step 2 records no payment, so nothing
+ * on this screen says a payment was taken or recorded: a bill reads "Payment unknown".
+ *
+ * PRODUCTION. While `FloorService.USE_MOCK_DATA` is on, `TablesComponent` renders this
+ * view only in a development build (see `floor-view-gate.ts`).
+ */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-tables-service-view',
   standalone: true,
-  imports: [
-    ServiceToolbarComponent,
-    FloorPlanCanvasComponent,
-    ReservationsPaneComponent,
-    NewReservationModalComponent,
-    TableDetailsDrawerComponent,
-    TransferTableModalComponent
-],
+  imports: [ServiceToolbarComponent, FloorPlanCanvasComponent, TableDetailsDrawerComponent],
   templateUrl: './tables-service-view.component.html',
   host: { class: 'block' },
 })
 export class TablesServiceViewComponent implements OnInit, OnDestroy {
-  areas: DiningArea[] = [];
-  tables: RestaurantTable[] = [];
-  servers: Server[] = [];
-  reservations: Reservation[] = [];
-  waitlist: WaitlistEntry[] = [];
-  seatedParties: SeatedParty[] = [];
+  /** How often the floor is re-read. `static` so specs can change it. */
+  static POLL_MS = 15_000;
 
-  private readonly _persistedArea!: PersistedValue<string>;
-  filters!: TableFilters;
+  readonly usingMockData = FloorService.USE_MOCK_DATA;
+
+  floor: FloorSnapshot | null = null;
+  loadState: 'loading' | 'ready' | 'error' = 'loading';
+  /** A read failed after a floor was already showing; the last good floor stays. */
+  refreshFailed = false;
+
+  search = '';
+  statusFilter: FloorTableStatus[] = [];
 
   selectedTableId: string | null = null;
-  selectedTableIds: string[] = [];
-  isNewReservationModalOpen = false;
-  transferSourceTableId: string | null = null;
+  detail: FloorTableDetail | null = null;
+  detailState: DetailState = 'idle';
 
-  private destroy$ = new Subject<void>();
+  pending: Record<string, RoundCommand> = {};
+  private notices: Record<string, Notice> = {};
+  statusPending: FloorStatusAction | null = null;
+
+  /** Device time the last floor landed, to advance the SERVER's clock between reads. */
+  private receivedAtMs = 0;
+  private nowMs = Date.now();
+
+  private readonly destroy$ = new Subject<void>();
+  private floorSub: Subscription | null = null;
+  private detailSub: Subscription | null = null;
 
   constructor(
-    private tablesService: TablesService,
-    private toast: ToastService,
-    private auth: AuthenticationService,
-    private localStorage: LocalStorageService,
-  ) {
-    this._persistedArea = new PersistedValue<string>('all', {
-      storage: this.localStorage,
-      getKey: () => `tables.areaFilter:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
-      validate: (v): v is string => typeof v === 'string',
-    });
-    this.filters = {
-      area: this._persistedArea.value,
-      status: [],
-      servers: [],
-      tableSize: [],
-      search: '',
-    };
-  }
+    private readonly floorService: FloorService,
+    private readonly toast: ToastService,
+    private readonly auth: AuthenticationService,
+  ) {}
 
   private get restaurantId(): string {
     return this.auth.currentRestaurantRole?.restaurant_id ?? '';
   }
 
   ngOnInit(): void {
-    combineLatest([
-      this.tablesService.areas$,
-      this.tablesService.tables$,
-      this.tablesService.reservations$,
-      this.tablesService.waitlist$,
-    ])
+    timer(0, TablesServiceViewComponent.POLL_MS)
       .pipe(takeUntil(this.destroy$))
-      .subscribe(([areas, tables, reservations, waitlist]) => {
-        this.areas = areas;
-        if (
-          areas.length > 0 &&
-          this.filters.area !== 'all' &&
-          !areas.find(a => a.id === this.filters.area && a.isActive)
-        ) {
-          this.filters = { ...this.filters, area: 'all' };
-          this._persistedArea.value = 'all';
-        }
-        this.tables = tables;
-        this.reservations = reservations;
-        this.waitlist = waitlist;
-        this.seatedParties = this.tablesService.getSeatedParties();
+      .subscribe(() => {
+        this.nowMs = Date.now();
+        this.refresh();
       });
-
-    // Load initial data
-    this.tablesService.getAreas('').subscribe();
-    this.tablesService.getTables('').subscribe();
-    this.tablesService.getReservations('').subscribe();
-    this.tablesService.getWaitlist('').subscribe();
-    this.tablesService.getServers('').subscribe(s => (this.servers = s));
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.floorSub?.unsubscribe();
+    this.detailSub?.unsubscribe();
   }
 
-  // ── Filtered tables ───────────────────────────────────
+  // ── Reads ──────────────────────────────────────────────────────
 
-  get filteredTables(): RestaurantTable[] {
-    return this.tables.filter(t => {
-      // Area
-      if (this.filters.area !== 'all' && t.areaId !== this.filters.area) return false;
-      // Status
-      if (this.filters.status.length > 0 && !this.filters.status.includes(t.status)) return false;
-      // Server
-      if (this.filters.servers.length > 0) {
-        if (this.filters.servers.includes('unassigned')) {
-          if (t.serverId && !this.filters.servers.includes(t.serverId)) return false;
-        } else {
-          if (!t.serverId || !this.filters.servers.includes(t.serverId)) return false;
+  refresh(): void {
+    this.floorSub?.unsubscribe();
+    this.floorSub = this.floorService.loadFloor(this.restaurantId).subscribe({
+      next: read => {
+        if (read.kind === 'superseded') return;
+        if (read.kind === 'invalid') return this.floorFailed();
+        this.floor = read.value;
+        this.receivedAtMs = Date.now();
+        this.nowMs = this.receivedAtMs;
+        this.loadState = 'ready';
+        this.refreshFailed = false;
+        if (this.selectedTableId) this.loadDetail();
+      },
+      error: () => this.floorFailed(),
+    });
+  }
+
+  private floorFailed(): void {
+    if (this.floor) this.refreshFailed = true;
+    else this.loadState = 'error';
+  }
+
+  private loadDetail(): void {
+    const tableId = this.selectedTableId;
+    if (!tableId) return;
+    if (this.detail?.id !== tableId) {
+      this.detail = null;
+      this.detailState = 'loading';
+    }
+    this.detailSub?.unsubscribe();
+    this.detailSub = this.floorService.loadTable(this.restaurantId, tableId).subscribe({
+      next: read => {
+        if (read.kind === 'superseded' || this.selectedTableId !== tableId) return;
+        if (read.kind === 'invalid') {
+          this.detailState = 'error';
+          return;
         }
-      }
-      // Size
-      if (this.filters.tableSize.length > 0) {
-        const match = this.filters.tableSize.some(size =>
-          size === 6 ? t.maxCapacity >= 6 : t.maxCapacity === size,
-        );
-        if (!match) return false;
-      }
-      // Search
-      if (this.filters.search) {
-        const q = this.filters.search.toLowerCase();
-        const party = this.seatedParties.find(p => p.tableId === t.id);
-        const nameMatch = party?.guest?.name?.toLowerCase().includes(q) ?? false;
-        const numMatch = String(t.number).includes(q);
-        const dispMatch = t.displayName?.toLowerCase().includes(q) ?? false;
-        if (!numMatch && !dispMatch && !nameMatch) return false;
-      }
+        this.detail = read.value;
+        this.detailState = 'ready';
+      },
+      error: () => {
+        if (this.selectedTableId === tableId) this.detailState = 'error';
+      },
+    });
+  }
+
+  // ── Derived ────────────────────────────────────────────────────
+
+  /**
+   * Tables that need staff first, then the rest, filtered. MEMOISED on its inputs:
+   * it is bound to the canvas, and a fresh array on every check would throw NG0100
+   * in a development build.
+   */
+  get visibleTables(): FloorTable[] {
+    const key = { floor: this.floor, search: this.search, filter: this.statusFilter };
+    const c = this.visibleCache;
+    if (c && c.floor === key.floor && c.search === key.search && c.filter === key.filter) return c.value;
+    const q = this.search.trim().toLowerCase();
+    const value = needsStaffFirst(this.floor?.tables ?? []).filter(t => {
+      if (this.statusFilter.length > 0 && !this.statusFilter.includes(t.status)) return false;
+      if (q && !t.displayName.toLowerCase().includes(q) && !String(t.number).includes(q)) return false;
       return true;
     });
+    this.visibleCache = { ...key, value };
+    return value;
+  }
+  private visibleCache: { floor: FloorSnapshot | null; search: string; filter: FloorTableStatus[]; value: FloorTable[] } | null = null;
+
+  get filtering(): boolean {
+    return this.search.trim() !== '' || this.statusFilter.length > 0;
   }
 
-  // ── Metrics ───────────────────────────────────────────
-
-  get metrics(): ServiceMetrics {
-    const seated = this.tables.filter(t => t.status === 'seated').length;
-    const total = this.tables.filter(t => t.status !== 'out_of_service').length;
-    const guestsSeated = this.seatedParties.reduce((sum, p) => sum + p.partySize, 0);
-    const avgTime =
-      this.seatedParties.length > 0
-        ? Math.round(
-            this.seatedParties.reduce(
-              (sum, p) => sum + (Date.now() - p.seatedAt.getTime()) / 60000,
-              0,
-            ) / this.seatedParties.length,
-          )
-        : 0;
-    return { inUse: seated, total, guestsSeated, avgTableTime: avgTime };
+  /** "Now" on the server's clock: its `server_time` advanced by the time since it landed. */
+  get serverNowMs(): number {
+    if (!this.floor) return 0;
+    return Date.parse(this.floor.serverTime) + (this.nowMs - this.receivedAtMs);
   }
 
-  // ── Filter change ─────────────────────────────────────
+  get selectedTable(): FloorTable | null {
+    return this.floor?.tables.find(t => t.id === this.selectedTableId) ?? null;
+  }
 
-  onFiltersChange(filters: TableFilters): void {
-    if (filters.area !== this.filters.area) {
-      this._persistedArea.value = filters.area;
+  /** The notices for the open table only. Memoised for the same reason as `visibleTables`. */
+  get selectedNotices(): Record<string, string> {
+    const c = this.noticeCache;
+    if (c && c.notices === this.notices && c.tableId === this.selectedTableId) return c.value;
+    const value: Record<string, string> = {};
+    for (const [orderId, n] of Object.entries(this.notices)) {
+      if (n.tableId === this.selectedTableId) value[orderId] = n.text;
     }
-    this.filters = filters;
+    this.noticeCache = { notices: this.notices, tableId: this.selectedTableId, value };
+    return value;
   }
+  private noticeCache: { notices: Record<string, Notice>; tableId: string | null; value: Record<string, string> } | null = null;
 
-  // ── Table selection ───────────────────────────────────
+  // ── Selection ──────────────────────────────────────────────────
 
-  onTableSelect(event: { tableId: string; isMultiSelect: boolean }): void {
-    if (event.isMultiSelect) {
-      if (this.selectedTableIds.includes(event.tableId)) {
-        this.selectedTableIds = this.selectedTableIds.filter(id => id !== event.tableId);
-      } else {
-        this.selectedTableIds = [...this.selectedTableIds, event.tableId];
-      }
-    } else {
-      this.selectedTableId = this.selectedTableId === event.tableId ? null : event.tableId;
-      this.selectedTableIds = [];
-    }
-  }
-
-  // ── Seat reservation on drop ──────────────────────────
-
-  onSeatReservation(event: { reservationId: string; tableId: string }): void {
-    const reservation = this.reservations.find(r => r.id === event.reservationId);
-    const table = this.tables.find(t => t.id === event.tableId);
-    if (!reservation || !table) return;
-
-    this.tablesService.updateTableStatus(event.tableId, 'seated').subscribe();
-    this.tablesService.updateReservation({
-      id: event.reservationId,
-      status: 'seated',
-      tableId: event.tableId,
-      seatedAt: new Date(),
-    });
-
-    // Create seated party
-    const newParty: SeatedParty = {
-      id: `seated-${Date.now()}`,
-      tableId: event.tableId,
-      guest: reservation.guest,
-      partySize: reservation.partySize,
-      adults: reservation.partySize,
-      children: 0,
-      seatedAt: new Date(),
-      serverId: table.serverId ?? 'srv-1',
-      reservationId: reservation.id,
-      currentCheck: 0,
-      isPaid: false,
-      orderItems: [],
-    };
-    mockSeatedParties.push(newParty);
-    this.seatedParties = [...mockSeatedParties];
-  }
-
-  // ── Tables change (from floor plan save) ──────────────
-
-  onTablesChange(updatedTables: RestaurantTable[]): void {
-    // Existing tables are persisted atomically; new tables (no real id yet) are
-    // created individually below.
-    const geometry = updatedTables
-      .filter(t => !t.id.startsWith('t-new-'))
-      .map(t => ({
-        id: t.id,
-        floor_x: t.x,
-        floor_y: t.y,
-        floor_width: t.width,
-        floor_height: t.height,
-      }));
-
-    if (geometry.length) {
-      this.tablesService.updateFloorPlan(this.restaurantId, geometry).subscribe({
-        next: () => this.toast.success('Layout saved'),
-        error: (err) => {
-          // The interceptor already queued this as a toast; clear it so the
-          // user sees one clean message.
-          this.toast.clear();
-          this.toast.error(
-            this.extractError(err, 'Could not save the floor plan. Please try again.'),
-          );
-          // Re-sync from the server so a failed save can't leave a stale layout.
-          this.tablesService.getTables('').subscribe();
-        },
-      });
-    }
-
-    // Handle new tables
-    for (const t of updatedTables) {
-      if (t.id.startsWith('t-new-')) {
-        this.tablesService.createTable(t, this.restaurantId).subscribe();
-      }
-    }
-  }
-
-  private extractError(err: unknown, fallback: string): string {
-    if (typeof err === 'string' && err.trim()) return err;
-    const e = err as { error?: { message?: string }; message?: string } | null;
-    return e?.error?.message || e?.message || fallback;
-  }
-
-  // ── Reservation handlers ──────────────────────────────
-
-  onNewReservation(): void {
-    this.isNewReservationModalOpen = true;
-  }
-
-  onNewReservationSaved(data: Omit<Reservation, 'id' | 'status'>): void {
-    this.tablesService.createReservation({ ...data, status: 'confirmed' } as any);
-    this.isNewReservationModalOpen = false;
-    this.toast.success('Reservation created');
-  }
-
-  onEditReservation(res: Reservation): void {
-    this.tablesService.updateReservation(res);
-  }
-
-  onCancelReservation(resId: string): void {
-    this.tablesService.cancelReservation(resId);
-  }
-
-  onMarkNoShow(resId: string): void {
-    const res = this.reservations.find(r => r.id === resId);
-    if (res?.tableId) {
-      this.tablesService.updateTableStatus(res.tableId, 'available').subscribe();
-    }
-    this.tablesService.markNoShow(resId);
-  }
-
-  onSeatFromWaitlist(event: { waitlistId: string; tableId: string }): void {
-    this.tablesService.seatFromWaitlist(event.waitlistId, event.tableId);
-  }
-
-  onViewTable(tableId: string): void {
+  onTableSelect(tableId: string): void {
+    if (this.selectedTableId === tableId) return;
     this.selectedTableId = tableId;
-    this.selectedTableIds = [];
-  }
-
-  // ── Drawer state ──────────────────────────────────────
-
-  get isDrawerOpen(): boolean {
-    return this.selectedTableId !== null || this.selectedTableIds.length > 0;
+    this.statusPending = null;
+    this.loadDetail();
   }
 
   onCloseDrawer(): void {
+    this.detailSub?.unsubscribe();
     this.selectedTableId = null;
-    this.selectedTableIds = [];
+    this.detail = null;
+    this.detailState = 'idle';
+    this.statusPending = null;
   }
 
-  // ── Drawer handlers ───────────────────────────────────
+  // ── Commands ───────────────────────────────────────────────────
 
-  onMarkStatus(event: { tableId: string; status: 'dirty' | 'available' | 'out_of_service' }): void {
-    this.tablesService.updateTableStatus(event.tableId, event.status).subscribe();
+  onConfirm(orderId: string): void {
+    this.run(orderId, 'confirm');
   }
 
-  onSeatWalkIn(event: { tableId: string; partySize: number }): void {
-    this.tablesService.seatWalkIn(event.tableId, event.partySize);
-    this.seatedParties = this.tablesService.getSeatedParties();
+  onDecline(orderId: string): void {
+    this.run(orderId, 'decline');
   }
 
-  onMarkPaid(tableId: string): void {
-    this.tablesService.updateTableStatus(tableId, 'available').subscribe();
-    // Remove seated party from mock data
-    const idx = mockSeatedParties.findIndex(p => p.tableId === tableId);
-    if (idx >= 0) {
-      mockSeatedParties.splice(idx, 1);
-      this.seatedParties = [...mockSeatedParties];
+  /**
+   * Mark the round pending, send the command, then show the SERVER's answer. Nothing
+   * is assumed in between: the round stays as it was until the answer lands, and the
+   * floor is re-read afterwards whatever the answer was.
+   */
+  private run(orderId: string, command: RoundCommand): void {
+    const tableId = this.selectedTableId;
+    if (!tableId || this.pending[orderId]) return;
+    const roundNumber =
+      this.detail?.rounds.find(r => r.orderId === orderId)?.roundNumber ??
+      this.selectedTable?.rounds.find(r => r.orderId === orderId)?.roundNumber ??
+      0;
+    this.pending = { ...this.pending, [orderId]: command };
+    this.clearNotice(orderId);
+
+    this.floorService
+      .command(this.restaurantId, orderId, command)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(answer => {
+        this.pending = without(this.pending, orderId);
+        this.applyAnswer(tableId, orderId, roundNumber, command, answer);
+        this.refresh();
+      });
+  }
+
+  private applyAnswer(
+    tableId: string,
+    orderId: string,
+    roundNumber: number,
+    command: RoundCommand,
+    answer: RoundCommandAnswer,
+  ): void {
+    switch (answer.kind) {
+      case 'ok':
+        this.toast.success(commandDoneMessage(command, roundNumber, answer.changed));
+        this.patchDetail(orderId, answer.state);
+        return;
+      case 'refused':
+        this.setNotice(orderId, tableId, refusalMessage(command, answer.reason, answer.itemName));
+        return;
+      case 'unknown':
+        this.setNotice(orderId, tableId, unknownAnswerMessage(command));
+        return;
     }
   }
 
-  onOffSystemPay(event: { tableId: string; method: string; reference?: string }): void {
-    this.tablesService.updateTableStatus(event.tableId, 'available').subscribe();
-    const idx = mockSeatedParties.findIndex(p => p.tableId === event.tableId);
-    if (idx >= 0) {
-      mockSeatedParties.splice(idx, 1);
-      this.seatedParties = [...mockSeatedParties];
+  /**
+   * Show the server's answer on the open drawer until the re-read lands: a released
+   * round reads "Sent to kitchen", a round that left the floor (declined) goes. Only
+   * the STATE the server named is applied; nothing else is invented.
+   */
+  private patchDetail(orderId: string, state: string): void {
+    if (!this.detail) return;
+    if (state === 'released') {
+      this.detail = {
+        ...this.detail,
+        rounds: this.detail.rounds.map(r =>
+          r.orderId === orderId ? { ...r, state: 'released', heldSince: null, stale: false, cannotBeMade: null } : r,
+        ),
+      };
+    } else if (state !== 'held') {
+      this.detail = { ...this.detail, rounds: this.detail.rounds.filter(r => r.orderId !== orderId) };
     }
   }
 
-  onDrawerAddToWaitlist(entry: { guestName: string; partySize: number; phone?: string; notes?: string }): void {
-    this.tablesService.addToWaitlist({
-      guest: { name: entry.guestName, phone: entry.phone },
-      partySize: entry.partySize,
-    });
+  onSetStatus(status: FloorStatusAction): void {
+    const table = this.selectedTable;
+    if (!table || this.statusPending) return;
+    this.statusPending = status;
+    const done = STATUS_ACTIONS.find(a => a.status === status)?.done ?? 'updated';
+    this.floorService
+      .setTableStatus(this.restaurantId, table.id, status)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(answer => {
+        this.statusPending = null;
+        if (answer.kind === 'ok') {
+          this.toast.success(`${table.displayName} ${done}`);
+        } else {
+          this.toast.error(`We couldn’t get an answer about ${table.displayName}. Check the floor and try again.`);
+        }
+        this.refresh();
+      });
   }
 
-  onChangeServer(event: { tableId: string; serverId: string }): void {
-    this.tablesService.updateTable({ id: event.tableId, serverId: event.serverId }).subscribe();
-    // Also update the seated party
-    const party = mockSeatedParties.find(p => p.tableId === event.tableId);
-    if (party) party.serverId = event.serverId;
-    this.seatedParties = [...mockSeatedParties];
+  onRetryDetail(): void {
+    this.loadDetail();
   }
 
-  onAddNote(_event: { tableId: string; note: string }): void {
-    // Notes are not persisted in mock mode; toast feedback is shown by the drawer.
+  private setNotice(orderId: string, tableId: string, text: string): void {
+    this.notices = { ...this.notices, [orderId]: { tableId, text } };
   }
 
-  onMergeTables(tableIds: string[]): void {
-    // Mark secondary tables as dirty, keep primary
-    const sorted = tableIds
-      .map(id => this.tables.find(t => t.id === id)!)
-      .filter(Boolean)
-      .sort((a, b) => a.number - b.number);
-    if (sorted.length < 2) return;
-    for (let i = 1; i < sorted.length; i++) {
-      this.tablesService.updateTableStatus(sorted[i].id, 'dirty').subscribe();
-    }
-    this.selectedTableIds = [];
-    this.selectedTableId = sorted[0].id;
-  }
-
-  onTransfer(tableId: string): void {
-    this.transferSourceTableId = tableId;
-  }
-
-  onTransferComplete(evt: { sourceTableId: string; destinationTableId: string }): void {
-    this.tablesService.transferTable(evt.sourceTableId, evt.destinationTableId);
-    const dest = this.tables.find(t => t.id === evt.destinationTableId);
-    const destName = dest?.displayName || (dest ? `Table ${dest.number}` : 'table');
-    this.toast.success(`Party transferred to ${destName}`);
-    this.transferSourceTableId = null;
-    this.selectedTableId = evt.destinationTableId;
-    this.selectedTableIds = [];
-    this.seatedParties = this.tablesService.getSeatedParties();
-  }
-
-  onTransferClose(): void {
-    this.transferSourceTableId = null;
-  }
-
-  get transferSourceTable(): RestaurantTable | null {
-    return this.transferSourceTableId
-      ? this.tables.find(t => t.id === this.transferSourceTableId) ?? null
-      : null;
-  }
-
-  get transferSourceParty(): SeatedParty | null {
-    return this.transferSourceTableId
-      ? this.seatedParties.find(p => p.tableId === this.transferSourceTableId) ?? null
-      : null;
+  private clearNotice(orderId: string): void {
+    this.notices = without(this.notices, orderId);
   }
 }

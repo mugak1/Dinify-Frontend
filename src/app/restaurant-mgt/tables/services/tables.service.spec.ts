@@ -378,3 +378,32 @@ describe('TablesService.activateQrForTables', () => {
     expect(result).toEqual([]);
   });
 });
+
+/**
+ * Step 2 retired `updateTableStatus`'s real branch. It PUT `status` to
+ * `restaurant-setup/tables/`, which the backend silently ignores, so every status
+ * action that used it reported a change the server never made. It now fails loudly
+ * and sends nothing; the floor view's status actions go through
+ * `FloorService.setTableStatus`.
+ */
+describe('TablesService.updateTableStatus (retired silent PUT)', () => {
+  let service: TablesService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
+    });
+    service = TestBed.inject(TablesService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+
+  it('sends no request and errors, naming its replacement', () => {
+    let error: unknown = null;
+    service.updateTableStatus('t1', 'dirty').subscribe({ error: e => (error = e) });
+    httpMock.expectNone(() => true);
+    expect(String(error)).toContain('FloorService.setTableStatus');
+  });
+});

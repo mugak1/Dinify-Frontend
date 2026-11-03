@@ -1,89 +1,68 @@
 <div class="space-y-4">
-  <!-- Service Toolbar -->
+  @if (usingMockData) {
+    <p data-testid="floor-sample-note" class="rounded-md border bg-secondary px-3 py-2 text-caption text-secondary-foreground">
+      Preview with sample tables and orders. Nothing you do here reaches your restaurant.
+    </p>
+  }
+
+  @if (floor && !floor.restaurant.acceptingOrders) {
+    <p data-testid="ordering-paused" class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-caption text-amber-900">
+      Ordering is paused, so diner orders can’t be sent to the kitchen until you resume it in Settings › Availability.
+    </p>
+  }
+
   <app-service-toolbar
-    [filters]="filters"
-    [areas]="areas"
-    [servers]="servers"
-    [metrics]="metrics"
-    (filtersChange)="onFiltersChange($event)"
+    [search]="search"
+    [statuses]="statusFilter"
+    [waiting]="floor ? floor.waitingForStaff : null"
+    (searchChange)="search = $event"
+    (statusesChange)="statusFilter = $event"
   ></app-service-toolbar>
 
-  <!-- Two-column layout -->
-  <div class="flex flex-col lg:flex-row gap-4">
-    <!-- Left pane: Reservations -->
-    <div class="w-full lg:min-w-[400px] lg:max-w-[420px] lg:shrink-0 max-h-[35vh] sm:max-h-[40vh] lg:max-h-none overflow-y-auto lg:overflow-y-visible">
-      <app-reservations-pane
-        [reservations]="reservations"
-        [waitlist]="waitlist"
-        [seatedParties]="seatedParties"
-        [tables]="tables"
-        [areas]="areas"
-        [servers]="servers"
-        (newReservation)="onNewReservation()"
-        (seatReservation)="onSeatReservation($event)"
-        (viewTable)="onViewTable($event)"
-        (editReservation)="onEditReservation($event)"
-        (cancelReservation)="onCancelReservation($event)"
-        (markNoShow)="onMarkNoShow($event)"
-        (seatFromWaitlist)="onSeatFromWaitlist($event)"
-      ></app-reservations-pane>
-    </div>
+  @if (refreshFailed) {
+    <p data-testid="floor-refresh-failed" role="status" class="rounded-md border px-3 py-2 text-caption text-foreground">
+      We couldn’t refresh the floor. Showing the last update.
+    </p>
+  }
 
-    <!-- Right pane: Floor Plan Canvas -->
-    <div class="relative flex-1 min-w-0">
+  @switch (loadState) {
+    @case ('loading') {
+      <div data-testid="floor-loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3" aria-busy="true">
+        @for (n of [1, 2, 3, 4, 5]; track n) {
+          <div class="h-28 rounded-lg border bg-muted animate-pulse"></div>
+        }
+      </div>
+    }
+    @case ('error') {
+      <div data-testid="floor-error" role="alert" class="rounded-lg border bg-card p-6 text-center space-y-2">
+        <p class="text-body text-foreground">We couldn’t load the floor.</p>
+        <button type="button" class="text-sm font-medium text-foreground underline-offset-4 hover:underline" (click)="refresh()">Try again</button>
+      </div>
+    }
+    @default {
       <app-floor-plan-canvas
-        [tables]="filteredTables"
-        [areas]="areas"
-        [seatedParties]="seatedParties"
-        [servers]="servers"
+        [tables]="visibleTables"
+        [filtered]="filtering"
         [selectedTableId]="selectedTableId"
-        [selectedTableIds]="selectedTableIds"
-        [reservations]="reservations"
+        [serverNowMs]="serverNowMs"
         (tableSelect)="onTableSelect($event)"
-        (seatReservation)="onSeatReservation($event)"
-        (tablesChange)="onTablesChange($event)"
       ></app-floor-plan-canvas>
-    </div>
-  </div>
+    }
+  }
 </div>
 
-<!-- New Reservation Modal -->
-<app-new-reservation-modal
-  [open]="isNewReservationModalOpen"
-  [areas]="areas"
-  (closed)="isNewReservationModalOpen = false"
-  (saved)="onNewReservationSaved($event)"
-></app-new-reservation-modal>
-
-<!-- Table Details Drawer -->
 <app-table-details-drawer
-  [isOpen]="isDrawerOpen"
-  [tableId]="selectedTableId"
-  [tableIds]="selectedTableIds"
-  [tables]="tables"
-  [areas]="areas"
-  [servers]="servers"
-  [seatedParties]="seatedParties"
-  [reservations]="reservations"
+  [isOpen]="!!selectedTableId"
+  [table]="selectedTable"
+  [detail]="detail"
+  [detailState]="detailState"
+  [serverNowMs]="serverNowMs"
+  [pending]="pending"
+  [notices]="selectedNotices"
+  [statusPending]="statusPending"
   (closed)="onCloseDrawer()"
-  (markStatus)="onMarkStatus($event)"
-  (seatWalkIn)="onSeatWalkIn($event)"
-  (transfer)="onTransfer($event)"
-  (markPaid)="onMarkPaid($event)"
-  (offSystemPay)="onOffSystemPay($event)"
-  (addToWaitlist)="onDrawerAddToWaitlist($event)"
-  (changeServer)="onChangeServer($event)"
-  (addNote)="onAddNote($event)"
-  (mergeTables)="onMergeTables($event)"
+  (confirmRound)="onConfirm($event)"
+  (declineRound)="onDecline($event)"
+  (setStatus)="onSetStatus($event)"
+  (retryDetail)="onRetryDetail()"
 ></app-table-details-drawer>
-
-<!-- Transfer Party Modal -->
-<app-transfer-table-modal
-  [open]="!!transferSourceTableId"
-  [sourceTable]="transferSourceTable"
-  [party]="transferSourceParty"
-  [tables]="tables"
-  [areas]="areas"
-  (closed)="onTransferClose()"
-  (transferred)="onTransferComplete($event)"
-></app-transfer-table-modal>

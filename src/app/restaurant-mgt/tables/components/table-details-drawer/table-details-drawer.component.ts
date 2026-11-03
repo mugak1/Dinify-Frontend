@@ -1,319 +1,174 @@
-import { ChangeDetectionStrategy, Component, Input, Output, EventEmitter } from '@angular/core';
-
-import { FormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { ButtonComponent } from '../../../../_shared/ui/button/button.component';
 import { BadgeComponent } from '../../../../_shared/ui/badge/badge.component';
 import { DialogComponent } from '../../../../_shared/ui/dialog/dialog.component';
-import { TooltipDirective } from '../../../../_shared/ui/tooltip/tooltip.directive';
-import { ToastService } from '../../../../_shared/ui/toast/toast.service';
-import { escapeHtml } from '../../../../_shared/utils/escape-html';
+import { SheetComponent } from '../../../../_shared/ui/sheet/sheet.component';
 import {
-  RestaurantTable,
-  DiningArea,
-  Server,
-  SeatedParty,
-  Reservation,
-  TableStatus,
-} from '../../models/tables.models';
+  FloorRound,
+  FloorRoundDetail,
+  FloorStatusAction,
+  FloorTable,
+  FloorTableDetail,
+  RoundCommand,
+} from '../../models/floor.models';
+import {
+  CHIP_CLASSES,
+  DECLINE_CONFIRM_BODY,
+  DECLINE_CONFIRM_TITLE,
+  FULFILMENT_LABEL,
+  PAYMENT_UNKNOWN_LABEL,
+  STATUS_ACTIONS,
+  TABLE_STATUS_LABEL,
+  ageLabel,
+  clockLabel,
+  minutesSince,
+  moneyLabel,
+  roundChipTone,
+  roundStateLabel,
+} from '../../utils/floor-presentation';
 
-const STATUS_COLORS: Record<TableStatus, string> = {
-  available: 'bg-success/10 text-success border-success/20',
-  seated: 'bg-destructive/10 text-destructive border-destructive/20',
-  bill_requested: 'bg-warning/10 text-warning border-warning/20',
-  dirty: 'bg-muted text-muted-foreground border-muted-foreground/20',
-  out_of_service: 'bg-muted/80 text-muted-foreground border-muted-foreground/20',
-};
+export type DetailState = 'idle' | 'loading' | 'ready' | 'error';
 
+interface RoundRow {
+  round: FloorRound;
+  /** Items and makeability; null until the table read has landed. */
+  detail: FloorRoundDetail | null;
+}
+
+/**
+ * The table drawer (Step 2, floor contract v1).
+ *
+ * It shows a table's rounds with their items, lets staff Confirm or Decline a held
+ * round, and offers three status actions — Mark dirty, Mark available, Out of service.
+ * Nothing else: seating, transfers, payments, bills, waitlist, server, notes, merge
+ * and split are not Step 2 and are not here.
+ *
+ * Presentational: it decides nothing and calls nothing. Every action is an output the
+ * floor view sends to `FloorService`, and every outcome comes back in as an input.
+ *
+ * Confirm is the view's one primary action (brand red). Decline is destructive and one
+ * step away: it asks first. Confirm is offered only once the table's items have loaded,
+ * so staff confirm what they have seen, and it is disabled when the round cannot be
+ * made.
+ */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-table-details-drawer',
   standalone: true,
-  imports: [
-    FormsModule,
-    ButtonComponent,
-    BadgeComponent,
-    DialogComponent,
-    TooltipDirective
-],
+  imports: [ButtonComponent, BadgeComponent, DialogComponent, SheetComponent],
   templateUrl: './table-details-drawer.component.html',
 })
 export class TableDetailsDrawerComponent {
   @Input() isOpen = false;
-  @Input() tableId: string | null = null;
-  @Input() tableIds: string[] = [];
-  @Input() tables: RestaurantTable[] = [];
-  @Input() areas: DiningArea[] = [];
-  @Input() servers: Server[] = [];
-  @Input() seatedParties: SeatedParty[] = [];
-  @Input() reservations: Reservation[] = [];
+  /** The table as the floor last read it. */
+  @Input() table: FloorTable | null = null;
+  /** The drawer's own read of the table (items, makeability). */
+  @Input() detail: FloorTableDetail | null = null;
+  @Input() detailState: DetailState = 'idle';
+  /** "Now" on the SERVER's clock, for round ages. */
+  @Input() serverNowMs = 0;
+  /** Commands in flight, by order id. */
+  @Input() pending: Record<string, RoundCommand> = {};
+  /** The latest answer that needs saying, by order id (this table's only). */
+  @Input() notices: Record<string, string> = {};
+  @Input() statusPending: FloorStatusAction | null = null;
 
   @Output() closed = new EventEmitter<void>();
-  @Output() markStatus = new EventEmitter<{ tableId: string; status: 'dirty' | 'available' | 'out_of_service' }>();
-  @Output() seatWalkIn = new EventEmitter<{ tableId: string; partySize: number }>();
-  @Output() transfer = new EventEmitter<string>();
-  @Output() markPaid = new EventEmitter<string>();
-  @Output() offSystemPay = new EventEmitter<{ tableId: string; method: string; reference?: string }>();
-  @Output() addToWaitlist = new EventEmitter<{ guestName: string; partySize: number; phone?: string; notes?: string }>();
-  @Output() changeServer = new EventEmitter<{ tableId: string; serverId: string }>();
-  @Output() addNote = new EventEmitter<{ tableId: string; note: string }>();
-  @Output() mergeTables = new EventEmitter<string[]>();
+  @Output() confirmRound = new EventEmitter<string>();
+  @Output() declineRound = new EventEmitter<string>();
+  @Output() setStatus = new EventEmitter<FloorStatusAction>();
+  @Output() retryDetail = new EventEmitter<void>();
 
-  // Dialog states
-  showOrderModal = false;
-  showOffSystemDialog = false;
-  showWaitlistDialog = false;
-  showNoteDialog = false;
-  showServerDialog = false;
-  showMergeConfirm = false;
+  readonly statusActions = STATUS_ACTIONS;
+  readonly statusLabel = TABLE_STATUS_LABEL;
+  readonly fulfilmentLabel = FULFILMENT_LABEL;
+  readonly paymentLabel = PAYMENT_UNKNOWN_LABEL;
+  readonly declineTitle = DECLINE_CONFIRM_TITLE;
+  readonly declineBody = DECLINE_CONFIRM_BODY;
 
-  // Off-system payment form
-  offSystemMethod = 'cash';
-  offSystemRef = '';
+  /** The held round the decline confirmation is asking about. */
+  declineTarget: FloorRound | null = null;
 
-  // Waitlist form
-  wlName = '';
-  wlPartySize = 2;
-  wlPhone = '';
-  wlNotes = '';
-
-  // Note form
-  noteText = '';
-
-  // Walk-in party size
-  walkInSize = 2;
-
-  constructor(private toast: ToastService) {}
-
-  // ── Computed ──────────────────────────────────────────
-
-  get isMultiSelect(): boolean {
-    return this.tableIds.length > 1;
+  /** The freshest read of this table: the drawer's own once it has landed. */
+  get current(): FloorTable | FloorTableDetail | null {
+    return this.detailReady ? this.detail : this.table;
   }
 
-  get selectedTables(): RestaurantTable[] {
-    if (this.isMultiSelect) {
-      return this.tables.filter(t => this.tableIds.includes(t.id));
-    }
-    if (this.tableId) {
-      const t = this.tables.find(tbl => tbl.id === this.tableId);
-      return t ? [t] : [];
-    }
-    return [];
+  get detailReady(): boolean {
+    return this.detailState === 'ready' && !!this.detail && this.detail.id === this.table?.id;
   }
 
-  get table(): RestaurantTable | null {
-    return this.selectedTables[0] ?? null;
+  get rows(): RoundRow[] {
+    if (this.detailReady) return this.detail!.rounds.map(r => ({ round: r, detail: r }));
+    return (this.table?.rounds ?? []).map(r => ({ round: r, detail: null }));
   }
 
-  get area(): DiningArea | undefined {
-    return this.table ? this.areas.find(a => a.id === this.table!.areaId) : undefined;
+  /** Answers about rounds that have since left the floor (declined elsewhere, say). */
+  get orphanNotices(): string[] {
+    const shown = new Set(this.rows.map(r => r.round.orderId));
+    return Object.entries(this.notices)
+      .filter(([orderId]) => !shown.has(orderId))
+      .map(([, text]) => text);
   }
 
-  get party(): SeatedParty | undefined {
-    return this.table ? this.seatedParties.find(p => p.tableId === this.table!.id) : undefined;
+  get hasOrders(): boolean {
+    return this.rows.length > 0;
   }
 
-  get server(): Server | undefined {
-    const serverId = this.party?.serverId ?? this.table?.serverId;
-    return serverId ? this.servers.find(s => s.id === serverId) : undefined;
+  chipClass(round: FloorRound): string {
+    return CHIP_CLASSES[roundChipTone(round)];
   }
 
-  get reservation(): Reservation | null {
-    return this.party?.reservationId
-      ? this.reservations.find(r => r.id === this.party!.reservationId) ?? null
-      : null;
+  roundLabel(round: FloorRound): string {
+    return roundStateLabel(round);
   }
 
-  get seatedTime(): number | null {
-    if (!this.party) return null;
-    return Math.floor((Date.now() - new Date(this.party.seatedAt).getTime()) / (60 * 1000));
+  heldAge(round: FloorRound): string {
+    return ageLabel(minutesSince(round.heldSince, this.serverNowMs));
   }
 
-  get tableName(): string {
-    if (!this.table) return '';
-    return this.table.displayName || `Table ${this.table.number}`;
+  clock(iso: string | null): string {
+    return clockLabel(iso);
   }
 
-  getStatusClass(status: TableStatus): string {
-    return STATUS_COLORS[status] ?? '';
+  money(value: string): string {
+    return moneyLabel(value);
   }
 
-  getOrderItemStatusClass(status: string): string {
-    switch (status) {
-      case 'served': return 'bg-success/10 text-success';
-      case 'ready': return 'bg-warning/10 text-warning';
-      case 'in_kitchen': return 'bg-primary/10 text-primary';
-      default: return 'bg-muted text-muted-foreground';
-    }
+  canConfirm(row: RoundRow): boolean {
+    return (
+      row.round.state === 'held' &&
+      !!row.detail &&
+      !row.detail.cannotBeMade &&
+      !this.pending[row.round.orderId]
+    );
   }
 
-  // ── Actions ───────────────────────────────────────────
+  // ── Actions ────────────────────────────────────────────────────
 
   onClose(): void {
+    this.declineTarget = null;
     this.closed.emit();
   }
 
-  handleMarkDirty(): void {
-    if (!this.table) return;
-    const newStatus = this.table.status === 'dirty' ? 'available' : 'dirty';
-    this.markStatus.emit({ tableId: this.table.id, status: newStatus as any });
-    this.toast.success(`${this.tableName} marked as ${newStatus}`);
+  onConfirm(row: RoundRow): void {
+    if (!this.canConfirm(row)) return;
+    this.confirmRound.emit(row.round.orderId);
   }
 
-  handleToggleDisable(): void {
-    if (!this.table) return;
-    const newStatus = this.table.status === 'out_of_service' ? 'available' : 'out_of_service';
-    this.markStatus.emit({ tableId: this.table.id, status: newStatus as any });
-    this.toast.success(`${this.tableName} ${newStatus === 'out_of_service' ? 'disabled' : 'enabled'}`);
+  askDecline(row: RoundRow): void {
+    if (row.round.state !== 'held' || this.pending[row.round.orderId]) return;
+    this.declineTarget = row.round;
   }
 
-  handleTransfer(): void {
-    if (!this.table) return;
-    this.transfer.emit(this.table.id);
+  confirmDecline(): void {
+    const target = this.declineTarget;
+    this.declineTarget = null;
+    if (target) this.declineRound.emit(target.orderId);
   }
 
-  handleSeatWalkIn(): void {
-    if (!this.table) return;
-    this.seatWalkIn.emit({ tableId: this.table.id, partySize: this.walkInSize });
-    this.toast.success(`Walk-in party of ${this.walkInSize} seated at ${this.tableName}`);
-    this.walkInSize = 2;
-  }
-
-  handleMarkPaid(): void {
-    if (!this.table) return;
-    this.markPaid.emit(this.table.id);
-    this.toast.success(`${this.tableName} marked as paid and cleared`);
-  }
-
-  handleOffSystemSubmit(): void {
-    if (!this.table) return;
-    this.offSystemPay.emit({
-      tableId: this.table.id,
-      method: this.offSystemMethod,
-      reference: this.offSystemRef || undefined,
-    });
-    this.toast.success(`Off-system payment recorded (${this.offSystemMethod})`);
-    this.showOffSystemDialog = false;
-    this.offSystemMethod = 'cash';
-    this.offSystemRef = '';
-  }
-
-  handleWaitlistSubmit(): void {
-    if (!this.wlName.trim()) return;
-    this.addToWaitlist.emit({
-      guestName: this.wlName.trim(),
-      partySize: this.wlPartySize,
-      phone: this.wlPhone || undefined,
-      notes: this.wlNotes || undefined,
-    });
-    this.toast.success(`${this.wlName} added to waitlist`);
-    this.showWaitlistDialog = false;
-    this.wlName = '';
-    this.wlPartySize = 2;
-    this.wlPhone = '';
-    this.wlNotes = '';
-  }
-
-  handleServerChange(serverId: string): void {
-    if (!this.table) return;
-    this.changeServer.emit({ tableId: this.table.id, serverId });
-    const srv = this.servers.find(s => s.id === serverId);
-    this.toast.success(`Server changed to ${srv?.name ?? 'Unknown'}`);
-    this.showServerDialog = false;
-  }
-
-  handleNoteSave(): void {
-    if (!this.table) return;
-    this.addNote.emit({ tableId: this.table.id, note: this.noteText });
-    this.toast.success(this.noteText ? 'Note saved' : 'Note cleared');
-    this.showNoteDialog = false;
-    this.noteText = '';
-  }
-
-  handleStubAction(action: string): void {
-    this.toast.info(`${action} — coming in a future release`);
-  }
-
-  // ── Print bill ────────────────────────────────────────
-
-  handlePrintBill(): void {
-    if (!this.table || !this.party) return;
-    // The bill is assembled as a string and written into a same-origin window,
-    // so every table, area and order-item value is HTML-encoded where it is
-    // interpolated — once.
-    const items = this.party.orderItems
-      .map(i => `<tr><td>${escapeHtml(String(i.quantity))}× ${escapeHtml(String(i.name))}</td><td style="text-align:right">${escapeHtml(String(i.status))}</td></tr>`)
-      .join('');
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    const tableName = escapeHtml(this.tableName);
-    const areaName = escapeHtml(String(this.area?.name ?? ''));
-    const partySize = escapeHtml(String(this.party.partySize));
-    const total = escapeHtml(this.party.currentCheck.toLocaleString());
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bill – ${tableName}</title>
-        <style>
-          body { font-family: 'Courier New', monospace; width: 300px; margin: 20px auto; font-size: 12px; }
-          h2 { text-align: center; margin-bottom: 4px; }
-          .sub { text-align: center; color: #666; margin-bottom: 16px; font-size: 11px; }
-          hr { border: none; border-top: 1px dashed #ccc; margin: 12px 0; }
-          table { width: 100%; }
-          td { padding: 2px 0; }
-          .total { font-weight: bold; font-size: 14px; }
-          .footer { text-align: center; color: #888; margin-top: 16px; font-size: 10px; }
-        </style>
-      </head>
-      <body>
-        <h2>${tableName}</h2>
-        <div class="sub">${areaName} &middot; Party of ${partySize}</div>
-        <hr/>
-        <table>${items}</table>
-        <hr/>
-        <table><tr class="total"><td>TOTAL</td><td style="text-align:right">UGX ${total}</td></tr></table>
-        <hr/>
-        <div class="footer">Thank you for dining with us!</div>
-        <script>window.onload = () => { window.print(); window.close(); };</script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-  }
-
-  // ── Multi-select bulk actions ─────────────────────────
-
-  handleBulkMarkDirty(): void {
-    for (const t of this.selectedTables) {
-      this.markStatus.emit({ tableId: t.id, status: 'dirty' });
-    }
-    this.toast.success(`${this.selectedTables.length} table(s) marked dirty`);
-  }
-
-  handleBulkOutOfService(): void {
-    for (const t of this.selectedTables) {
-      this.markStatus.emit({ tableId: t.id, status: 'out_of_service' });
-    }
-    this.toast.success(`${this.selectedTables.length} table(s) marked out of service`);
-  }
-
-  handleMergeConfirm(): void {
-    this.mergeTables.emit(this.tableIds);
-    this.toast.success(`Tables ${this.selectedTables.map(t => t.number).join(', ')} merged`);
-    this.showMergeConfirm = false;
-  }
-
-  get mergeTableNumbers(): string {
-    return this.selectedTables.map(t => t.number).join(', ');
-  }
-
-  get primaryTableNumber(): number {
-    return this.selectedTables.length > 0 ? this.selectedTables[0].number : 0;
-  }
-
-  get mergeHasConflict(): boolean {
-    const statuses = new Set(this.selectedTables.map(t => t.status));
-    return statuses.size > 1;
+  onStatus(status: FloorStatusAction): void {
+    if (this.statusPending || this.current?.status === status) return;
+    this.setStatus.emit(status);
   }
 }

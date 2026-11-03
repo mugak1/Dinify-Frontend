@@ -51,7 +51,8 @@
  * (`'bg-' + colour`), an inline `style`, a raw hex, or a CSS file is outside its reach.
  * `fill-*` / `stroke-*` are not checked. And it reads only the IN-SCOPE files listed in
  * `SCOPE` below: the diner app, the kitchen board, the Menu preview components (which
- * mimic the diner brand), the parked Tables service view and the other auth screens keep
+ * mimic the diner brand), the three still-parked Tables components (reservations pane,
+ * reservation modal, transfer modal) and the other auth screens keep
  * their own brand red by design and are not scanned.
  *
  * Usage (no build, no deps):
@@ -94,12 +95,10 @@ export const SCOPE = {
     'tag-filter-sheet',
     'upsell-carousel',
     'upsell-preview-modal',
-    // The parked (hidden) Tables service view.
-    'tables-service-view',
-    'floor-plan-canvas',
+    // The Tables components that stay PARKED (unrendered) in Step 2. The floor view
+    // itself — tables-service-view, service-toolbar, floor-plan-canvas and
+    // table-details-drawer — is in scope since FE-B: brand red there is Confirm only.
     'reservations-pane',
-    'table-details-drawer',
-    'service-toolbar',
     'transfer-table-modal',
     'new-reservation-modal',
   ],
