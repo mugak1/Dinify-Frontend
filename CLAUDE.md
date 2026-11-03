@@ -1937,7 +1937,8 @@ so keep it current when conventions change.
   convention split, so the notice is UNREACHABLE in the running app until that flag
   flips — inventing one in the mock would be inventing data
 - Dashboard responsiveness: ✅ Complete
-- Phase 3 (Tables module): 🔄 MVP ships Setup View only (route `dining-tables`)
+- Phase 3 (Tables module): 🔄 production ships the Setup View only (route `dining-tables`);
+  the Step 2 floor view exists only in a development build until FE-C (floor-view sub-bullet below)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
     blocked deletes (e.g. an area that still has tables) surface the backend
     message as a single toast (see error-handling note below)
@@ -1953,11 +1954,59 @@ so keep it current when conventions change.
     printed QR encodes the opaque, signed `RestaurantTable.qrCredential` (backend
     PR 7A), never the table UUID; the QR-preview modal renders/copies/downloads/
     prints ONLY with a non-empty credential
-  - Service View (reservations, waitlist, seated parties): ⏸️ parked AND hidden
-    from the UI — its component/services/mocks/models stay in the repo but are
-    NOT rendered. `TablesComponent.activeView` is forced to `'setup'` (seed +
-    validate honour only `'setup'`), so re-enabling the toggle later is a small
-    revert. Service code still sits behind `USE_MOCK_SERVICE = true`
+  - **Floor view (Step 2, FE-B): built on MOCK data, HIDDEN IN PRODUCTION until FE-C.**
+    🔄 The Tables page's Service view is rebuilt as the floor view on floor contract
+    v1 (`models/floor.models.ts`) and `FloorService` (`services/floor.service.ts`,
+    `static USE_MOCK_DATA = true`). FE-C wires the real endpoints and makes it
+    visible. What it SHOWS: each table's floor status with its held and released
+    rounds, each held round's age and the server's `stale` flag ("Waiting for staff",
+    "Waiting over 15 min"); tables needing staff first (a stable partition that keeps
+    the server's order inside each group); a search, a status filter and the server's
+    `waiting_for_staff` as "N waiting"; and the drawer: rounds with their items,
+    Confirm (the view's ONE brand-red action, disabled when the round cannot be made
+    and offered only once the items have loaded) and Decline (destructive, behind
+    "Decline this order? It will not be sent to the kitchen."), plus Mark dirty, Mark
+    available and Out of service. What it does NOT show: the reservations pane, the
+    reservation modal and the transfer modal stay PARKED (files kept, unrendered,
+    still excluded from the colour-roles gate). The drawer's Seat walk-in, Mark paid,
+    Off-system, Print bill, Waitlist, Change server, Note, Merge and Split were
+    REMOVED from the drawer, with the false payment toasts ("marked as paid",
+    "Off-system payment recorded") and the `isPaid` / `currentCheck` reads. The
+    spatial plan and its Edit-layout mode went too: the contract carries no geometry
+    and orders the floor as a list. **NO PAYMENT CLAIM**: Step 2 records no payment
+    and Dinify is non-custodial, so a bill reads "Payment unknown", a held round's
+    value is "to pay", and the contract's only payment field is `payment: "unknown"`.
+    Rules worth keeping:
+    - **THE GATE IS `isDevMode()`, NOT `environment.production`.** The shipping `uat`
+      build bakes `production: false`, so that flag would open the gate on the live
+      site. `floorViewAvailable(devMode, useMockData)` is `devMode || !useMockData`
+      (`services/floor-view-gate.ts`, `FLOOR_DEV_MODE` token). In every optimised
+      build (`production`, `uat`, `dev`, `staging`) the toggle, the view and a
+      persisted `'service'` selection are unreachable while mock data is on, and
+      `FloorService` also refuses to serve mock data there. Flipping `USE_MOCK_DATA`
+      is what opens the view in production; that, with the transport, is FE-C.
+    - **ONE ADAPTER, ONE TRANSPORT SEAM.** `services/floor-adapter.ts` is the only
+      reader of the snake_case wire, and it refuses what it cannot read (another
+      `contract` tag, a timestamp without an offset, float money, a payment other
+      than `unknown`) rather than guessing. `FloorTransport` is the seam:
+      `FloorMockBackend` today, which keeps the server's rules (stale, ordering,
+      idempotent resends, all eight 409 reasons); an HTTP one in FE-C. FE-C also
+      needs an `ErrorInterceptor` carve-out for the floor command routes so a 409's
+      `reason` reaches the view, as the kitchen command routes have.
+    - **THE SERVER DECIDES.** A command marks the round pending and nothing else. The
+      answer is `ok`, `refused` (a 409; `refusalMessage` has copy for every reason)
+      or `unknown` (no readable answer: never shown as success or failure, and a
+      resend is safe because the server answers `changed: false`).
+    - **ONE FENCE.** A floor read that STARTED before a command answer LANDED is
+      `superseded`, so an older read cannot undo a newer answer.
+    - **`TablesService.updateTableStatus` IS RETIRED.** Its real branch PUT `status`
+      to `restaurant-setup/tables/`, which the backend silently ignores; it now fails
+      loudly. The status actions go through `FloorService.setTableStatus`, which FE-C
+      points at `table-actions/update-status/`.
+    Pinned by `tables.component.spec.ts` (the production gate),
+    `tables-service-view.component.spec.ts` (end to end over the mock),
+    `table-details-drawer.component.spec.ts`, `floor-presentation.spec.ts`,
+    `floor-adapter.spec.ts` and `floor.service.spec.ts`
 - Menu polish pass: ✅ Complete — canonical `discount_details` shape, native
   `preset_tags` arrays, paginated menusections/menuitems, allergens rewired
   onto the `tags` field as the dietary-tag source of truth
@@ -4667,7 +4716,9 @@ writing new tag, price/menu or date-range logic:
   variant, R2 brand-red tints/outlines/`accent-*`, R3 brand-red text, R4 a solid
   brand-red fill outside a short reviewed allowlist. Out of scope and NOT scanned: the
   diner app, the kitchen board, the Menu preview components (which mimic the diner
-  brand), the parked Tables service view and the other auth screens
+  brand), the three still-parked Tables components (reservations pane, reservation
+  modal, transfer modal) and the other auth screens. The floor view itself (service
+  view, toolbar, canvas, drawer) IS scanned
 - Corner radius flows from ONE token: `--radius` in `src/styles.css`, raised from
   `0.5rem` to `0.875rem` so the shared button/input corner reads soft on tall
   filled controls. `rounded-sm`/`rounded-md`/`rounded-lg` are all `calc()`ed off
@@ -4855,8 +4906,11 @@ writing new tag, price/menu or date-range logic:
   and kitchen load are not revenue-derived) and the reviews mock
 - TablesService now splits the flag in two:
   - `USE_MOCK_SETUP = false` — Setup View (areas, tables) is real-wired
-  - `USE_MOCK_SERVICE = true` — Service View (reservations, waitlist,
-    seated parties) is still mock
+  - `USE_MOCK_SERVICE = true` — the parked reservations, waitlist and
+    seated-party code, which nothing renders any more
+- `FloorService.USE_MOCK_DATA = true` (a `static`) — the Step 2 floor view runs on
+  `FloorMockBackend`, which answers in floor contract v1. While it is on, the view
+  exists only in a development build (see the floor-view bullet under Phase 3)
 - KitchenOrderService uses a single `USE_MOCK_DATA = false` flag — the
   Kitchen View is real-wired; the in-memory mock dataset stays dormant behind
   the flag as a design-review aid (flip to `true` locally)
@@ -4964,8 +5018,12 @@ writing new tag, price/menu or date-range logic:
   areas + tables endpoints plus the QR lifecycle — activation via the ordinary
   table update (`has_qr=true`) and secure rotation via
   `restaurant-setup/table-actions/regenerate-qr/` (one `{ table_id }` per call,
-  server-signed response). The Service-View endpoints (reservations, waitlist,
-  seated-party/table actions) exist in the backend already and remain to be wired
+  server-signed response). The reservation, waitlist and seated-party endpoints
+  exist in the backend and remain unwired (their UI is parked)
+- Floor real endpoints (floor contract v1, BE-D; wired by FE-C, dormant here): GET
+  `floor/?restaurant=`, GET `floor/tables/<id>/?restaurant=`, POST
+  `floor/rounds/<order_id>/confirm/` and `…/decline/` (body `{restaurant}`), and
+  `table-actions/update-status/` for the three status actions
 - Kitchen real endpoints: GET `kitchen/orders/active/` + `kitchen/orders/completed/`
   (polled), PUT `kitchen/orders/{id}/fulfilment-status/`,
   `kitchen/orders/{id}/priority/` and `kitchen/orders/{id}/cancel/` (each naming an
@@ -5138,14 +5196,14 @@ writing new tag, price/menu or date-range logic:
   value directly as the login/lookup key; never prepend `+256` or a trunk `0`
   yourself
 - localStorage to httpOnly cookie migration requires backend coordination
-- Tables Service View is parked AND hidden from the UI (MVP ships Setup View
-  only); `TablesComponent.activeView` is forced to `'setup'`. It still sits on
-  mock data (`USE_MOCK_SERVICE = true`) — real reservations/waitlist endpoints
-  exist but are not yet wired. Its write methods fail loud in their non-mock
-  branch (via `serviceViewNotWired`), so wire the real endpoints before flipping
-  the flag. `mapApiTable` also does not yet map `raw.server_id` onto
-  `RestaurantTable.serverId` (declared but unpopulated) — wire that alongside
-  the Service View; the `server_id` contract may change by then
+- The floor view (Step 2) runs on mock data and is reachable only in a development
+  build until FE-C wires the floor endpoints and flips `FloorService.USE_MOCK_DATA`.
+  The parked reservations, waitlist and seated-party code still sits on mock data
+  (`USE_MOCK_SERVICE = true`); its write methods fail loud in their non-mock branch
+  (via `serviceViewNotWired`), so wire the real endpoints before flipping that flag.
+  `mapApiTable` also does not yet map `raw.server_id` onto
+  `RestaurantTable.serverId` (declared but unpopulated); the `server_id` contract
+  may change by then
 
 ## Verification
 Before raising any PR:
