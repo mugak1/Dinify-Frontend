@@ -14,7 +14,7 @@ import {
 import {
   FulfilmentStatus, KitchenTicket, TicketOperation,
 } from '../models/kitchen.models';
-import { classifyEscalation } from '../services/kitchen-logic';
+import { classifyEscalation, ticketStartedAt } from '../services/kitchen-logic';
 import { KitchenOrderService } from '../services/kitchen-order.service';
 import { KitchenStockService } from '../services/kitchen-stock.service';
 import { TicketCardComponent } from './ticket-card/ticket-card.component';
@@ -315,16 +315,16 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.currentPage.set(Math.round(el.scrollLeft / el.clientWidth));
   }
 
-  /** Jump to the page holding the oldest-created ticket. */
+  /** Jump to the page holding the ticket that started (was released) earliest. */
   jumpOldest(): void { this.jumpToTicket(this.indexOfExtreme('oldest')); }
-  /** Jump to the page holding the newest-created ticket. */
+  /** Jump to the page holding the ticket that started (was released) latest. */
   jumpNewest(): void { this.jumpToTicket(this.indexOfExtreme('newest')); }
   /** Jump to the page holding the first overdue ticket (sorted order). */
   jumpFirstOverdue(): void {
     const list = this.tickets();
     const now = this.now();
     const idx = list.findIndex(
-      t => classifyEscalation(t.created_at, t.served_at, now) === 'overdue',
+      t => classifyEscalation(ticketStartedAt(t), t.served_at, now) === 'overdue',
     );
     this.jumpToTicket(idx);
   }
@@ -332,7 +332,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   get hasOverdue(): boolean {
     const now = this.now();
     return this.tickets().some(
-      t => classifyEscalation(t.created_at, t.served_at, now) === 'overdue',
+      t => classifyEscalation(ticketStartedAt(t), t.served_at, now) === 'overdue',
     );
   }
 
@@ -341,8 +341,8 @@ export class BoardComponent implements OnInit, OnDestroy {
     if (!list.length) return -1;
     let best = 0;
     for (let i = 1; i < list.length; i++) {
-      const a = new Date(list[i].created_at).getTime();
-      const b = new Date(list[best].created_at).getTime();
+      const a = new Date(ticketStartedAt(list[i])).getTime();
+      const b = new Date(ticketStartedAt(list[best])).getTime();
       if (which === 'oldest' ? a < b : a > b) best = i;
     }
     return best;
@@ -458,7 +458,7 @@ export class BoardComponent implements OnInit, OnDestroy {
     // (and its fire-once bookkeeping) stays continuous across a view switch.
     const overdue = new Set(
       this.service.activeTickets()
-        .filter(t => classifyEscalation(t.created_at, t.served_at, now) === 'overdue')
+        .filter(t => classifyEscalation(ticketStartedAt(t), t.served_at, now) === 'overdue')
         .map(t => t.id),
     );
     if (this.overdueFired === null) {

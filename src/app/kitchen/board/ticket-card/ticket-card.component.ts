@@ -18,6 +18,7 @@ import {
   classifyEscalation,
   classifyModifier,
   formatAge,
+  ticketStartedAt,
   formatOrderNumber,
   formatServedAgo,
   isRecallEligible,
@@ -172,7 +173,7 @@ export class TicketCardComponent {
   }
 
   get age(): string {
-    return formatAge(this.ticket.created_at, this.now);
+    return formatAge(ticketStartedAt(this.ticket), this.now);
   }
 
   /** Completed-mode age line: "served 3m ago", or null when no served stamp. */
@@ -182,7 +183,7 @@ export class TicketCardComponent {
   }
 
   get escalation(): EscalationLevel {
-    return classifyEscalation(this.ticket.created_at, this.ticket.served_at, this.now);
+    return classifyEscalation(ticketStartedAt(this.ticket), this.ticket.served_at, this.now);
   }
 
   get next() {

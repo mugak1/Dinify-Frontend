@@ -182,10 +182,37 @@ function withLineProvenance<T extends KitchenLineEvidence>(line: T): T {
   return out;
 }
 
-/** A copy of a validated ticket whose lines and extras carry read markers. */
+/**
+ * An ISO-8601 instant WITH an offset (`Z` or `±hh:mm`). A naive timestamp is
+ * refused rather than read against the device's clock, which on a tablet set to
+ * another zone would age a ticket by hours.
+ */
+const OFFSET_INSTANT =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * Step 2 (`released_at`): when the round was released to the kitchen. OPTIONAL,
+ * and an unreadable value is NOT a reason to refuse the feed: absent, `null`,
+ * a non-string, a naive or unparseable timestamp all answer `undefined`, which
+ * means "not given". No value is invented (the D07 rule): the caller falls back
+ * to `created_at` at the point of use, and the ticket never carries a fabricated
+ * release time.
+ */
+export function readReleasedAt(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !OFFSET_INSTANT.test(value)) return undefined;
+  return Number.isFinite(Date.parse(value)) ? value : undefined;
+}
+
+/**
+ * A copy of a validated ticket whose lines and extras carry read markers, and
+ * whose `released_at` is either a readable instant or absent.
+ */
 function withTicketProvenance(ticket: KitchenTicket): KitchenTicket {
+  const { released_at: rawReleasedAt, ...rest } = ticket as KitchenTicket & { released_at?: unknown };
+  const releasedAt = readReleasedAt(rawReleasedAt);
   return {
-    ...ticket,
+    ...rest,
+    ...(releasedAt !== undefined ? { released_at: releasedAt } : {}),
     items: ticket.items.map(item => {
       const line = withLineProvenance(item);
       if (item.extras !== undefined) line.extras = item.extras.map(withLineProvenance);
