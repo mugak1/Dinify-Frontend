@@ -1,212 +1,137 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TableDetailsDrawerComponent } from './table-details-drawer.component';
-import { ToastService } from '../../../../_shared/ui/toast/toast.service';
-import {
-  DiningArea,
-  RestaurantTable,
-  SeatedParty,
-} from '../../models/tables.models';
+import { FloorRoundDetail, FloorTable, FloorTableDetail } from '../../models/floor.models';
 
 /**
- * D14 B1 — the bill print document carries table, area and order-item labels
- * as TEXT.
+ * The table drawer on its own (Step 2). Presentational: inputs in, outputs out.
  *
- * This drawer belongs to the PARKED Service View, which is not mounted in the
- * shipped UI (`TablesComponent` forces the setup view and the Service View data
- * sits behind `USE_MOCK_SERVICE`). Nothing here mounts it or changes a flag:
- * `handlePrintBill` is exercised as a component method, so this is source-level
- * reachability of the same print-document class as the QR sheets, repaired
- * before it can ship un-encoded.
- *
- * The document the method actually wrote is parsed (DOMParser runs nothing)
- * and asserted on as DOM rather than as substrings.
+ * It replaces the D14 B1 specs on `handlePrintBill`: Print bill is not a Step 2
+ * control and is gone with the code that wrote the bill document. What D14 B1
+ * protected still holds and is pinned here — every server-supplied label (table,
+ * item, extra, modifier, note, sold-out item) renders as TEXT, never as markup — and
+ * the drawer can no longer open a window at all.
  */
-describe('TableDetailsDrawerComponent — handlePrintBill (labels encoded as text)', () => {
+describe('TableDetailsDrawerComponent (Step 2)', () => {
   const MARKER = '<dinify-probe data-d14="x">m</dinify-probe>';
-  const TITLE_BREAK = '</title><dinify-probe data-d14="t"></dinify-probe>';
+  let fixture: ComponentFixture<TableDetailsDrawerComponent>;
 
-  let component: TableDetailsDrawerComponent;
-  let fakeDoc: { write: jasmine.Spy; close: jasmine.Spy };
-  let openSpy: jasmine.Spy;
-
-  function table(over: Partial<RestaurantTable> = {}): RestaurantTable {
+  function round(over: Partial<FloorRoundDetail> = {}): FloorRoundDetail {
     return {
-      id: 't1',
-      number: 5,
-      areaId: 'area-1',
-      minCapacity: 2,
-      maxCapacity: 4,
-      shape: 'square',
-      status: 'seated',
-      tags: [],
-      isActive: true,
-      hasQR: true,
-      qrMode: 'order_only',
-      x: 0,
-      y: 0,
-      width: 10,
-      height: 10,
+      orderId: 'o-1',
+      roundNumber: 1,
+      state: 'held',
+      source: 'diner',
+      acceptedAt: '2026-11-03T18:58:00+03:00',
+      heldSince: '2026-11-03T18:58:00+03:00',
+      releasedAt: null,
+      stale: false,
+      fulfilmentStatus: 'new',
+      itemCount: 2,
+      value: '17000.00',
+      items: [{ name: 'Rolex', quantity: 2, extras: [], modifiers: [], note: null }],
+      cannotBeMade: null,
       ...over,
     };
   }
 
-  function area(name: string): DiningArea {
+  function detail(rounds: FloorRoundDetail[], over: Partial<FloorTableDetail> = {}): FloorTableDetail {
     return {
-      id: 'area-1',
-      name,
-      isIndoor: true,
-      smokingAllowed: false,
-      accessible: true,
-      isActive: true,
-      tableIds: ['t1'],
-    };
-  }
-
-  function party(over: Partial<SeatedParty> = {}): SeatedParty {
-    return {
-      id: 'p1',
-      tableId: 't1',
-      partySize: 3,
-      adults: 3,
-      children: 0,
-      seatedAt: new Date(),
-      serverId: 's1',
-      currentCheck: 45000,
-      isPaid: false,
-      orderItems: [
-        { id: 'i1', name: 'Rolex', quantity: 2, status: 'served' },
-      ],
+      id: 't-2', number: 2, displayName: 'T2', areaId: null, status: 'seated', occupied: true,
+      needsStaff: rounds.some(r => r.state === 'held'),
+      visit: { id: 'v', openedAt: '2026-11-03T18:50:00+03:00', payment: 'unknown' },
+      rounds,
       ...over,
     };
   }
 
-  function arrange(t: RestaurantTable, a: DiningArea, p: SeatedParty): void {
-    component.tables = [t];
-    component.areas = [a];
-    component.seatedParties = [p];
-    component.tableId = t.id;
+  function render(d: FloorTableDetail, state: 'ready' | 'loading' = 'ready'): HTMLElement {
+    TestBed.configureTestingModule({ imports: [TableDetailsDrawerComponent] });
+    fixture = TestBed.createComponent(TableDetailsDrawerComponent);
+    const c = fixture.componentInstance;
+    const { rounds, ...shell } = d;
+    c.isOpen = true;
+    c.table = { ...shell, rounds: rounds.map(({ items: _i, cannotBeMade: _c, ...r }) => r) } as FloorTable;
+    c.detail = d;
+    c.detailState = state;
+    c.serverNowMs = Date.parse('2026-11-03T19:02:00+03:00');
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
   }
 
-  function writtenDocument(): Document {
-    expect(fakeDoc.write).toHaveBeenCalledTimes(1);
-    const html = fakeDoc.write.calls.mostRecent().args[0] as string;
-    return new DOMParser().parseFromString(html, 'text/html');
-  }
-
-  function noInjectedMarkup(doc: Document): void {
-    expect(doc.querySelector('dinify-probe')).toBeNull();
-    expect(doc.querySelector('[data-d14]')).toBeNull();
-  }
-
-  beforeEach(async () => {
-    const toast = jasmine.createSpyObj('ToastService', [
-      'success', 'error', 'warning', 'info', 'clear',
-    ]);
-    await TestBed.configureTestingModule({
-      imports: [TableDetailsDrawerComponent],
-      providers: [{ provide: ToastService, useValue: toast }],
-    }).compileComponents();
-    component = TestBed.createComponent(TableDetailsDrawerComponent).componentInstance;
-
-    fakeDoc = {
-      write: jasmine.createSpy('write'),
-      close: jasmine.createSpy('close'),
-    };
-    openSpy = spyOn(window, 'open').and.returnValue(
-      { document: fakeDoc } as unknown as Window,
+  it('renders every server-supplied label as text, never markup (D14 B1, carried over)', () => {
+    const el = render(
+      detail(
+        [round({
+          items: [{ name: MARKER, quantity: 1, extras: [{ name: MARKER, quantity: 1 }], modifiers: [MARKER], note: MARKER }],
+          cannotBeMade: { reason: 'item_sold_out', itemName: MARKER },
+        })],
+        { displayName: MARKER },
+      ),
     );
+    expect(el.querySelector('dinify-probe')).toBeNull();
+    expect((el.textContent ?? '').split(MARKER).length - 1).toBe(6);
   });
 
-  it('REGRESSION: a table display name is literal text in the title and heading', () => {
-    arrange(table({ displayName: `Booth ${TITLE_BREAK}` }), area('Main'), party());
-
-    component.handlePrintBill();
-
-    const doc = writtenDocument();
-    noInjectedMarkup(doc);
-    expect(doc.title).toBe(`Bill – Booth ${TITLE_BREAK}`);
-    expect(doc.head.querySelectorAll('title').length).toBe(1);
-    expect(doc.querySelector('h2')!.textContent).toBe(`Booth ${TITLE_BREAK}`);
+  it('never opens a window, whatever is pressed', () => {
+    const opened = spyOn(window, 'open');
+    const el = render(detail([round()]));
+    for (const b of Array.from(el.querySelectorAll<HTMLButtonElement>('button'))) b.click();
+    fixture.detectChanges();
+    for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-testid="decline-confirm"]'))) b.click();
+    expect(opened).not.toHaveBeenCalled();
   });
 
-  it('REGRESSION: an area name is literal text in the sub-heading', () => {
-    arrange(table(), area(`Patio ${MARKER}`), party({ partySize: 4 }));
-
-    component.handlePrintBill();
-
-    const doc = writtenDocument();
-    noInjectedMarkup(doc);
-    const sub = doc.querySelector('.sub')!;
-    expect(sub.textContent).toBe(`Patio ${MARKER} · Party of 4`);
-    expect(sub.children.length).toBe(0);
+  it('Confirm is offered only once the items have loaded — staff confirm what they have seen', () => {
+    const el = render(detail([round()]), 'loading');
+    expect(el.querySelector('[data-testid="confirm-round"]')).toBeNull();
+    expect(el.textContent).toContain('loading items…');
   });
 
-  it('REGRESSION: order-item names and statuses are literal text in their rows', () => {
-    arrange(
-      table(),
-      area('Main'),
-      party({
-        orderItems: [
-          { id: 'i1', name: `Chips ${MARKER}`, quantity: 2, status: 'served' },
-          { id: 'i2', name: 'Tea & "Mandazi"', quantity: 1, status: `ready${MARKER}` as any },
-        ],
-      }),
-    );
+  it('Confirm emits the round; Decline asks first and emits only on "Decline order"', () => {
+    const el = render(detail([round()]));
+    const c = fixture.componentInstance;
+    const confirmed: string[] = [];
+    const declined: string[] = [];
+    c.confirmRound.subscribe(id => confirmed.push(id));
+    c.declineRound.subscribe(id => declined.push(id));
 
-    component.handlePrintBill();
+    el.querySelector<HTMLButtonElement>('[data-testid="confirm-round"]')!.click();
+    expect(confirmed).toEqual(['o-1']);
 
-    const doc = writtenDocument();
-    noInjectedMarkup(doc);
-    const rows = Array.from(doc.querySelectorAll('table')[0].querySelectorAll('tr'));
-    expect(rows.length).toBe(2);
-    expect(rows.map(r => Array.from(r.querySelectorAll('td')).map(td => td.textContent))).toEqual([
-      [`2× Chips ${MARKER}`, 'served'],
-      ['1× Tea & "Mandazi"', `ready${MARKER}`],
-    ]);
+    el.querySelector<HTMLButtonElement>('[data-testid="decline-round"]')!.click();
+    fixture.detectChanges();
+    expect(declined).toEqual([]);
+    expect(el.textContent).toContain('Decline this order?');
+    expect(el.textContent).toContain('It will not be sent to the kitchen.');
+    el.querySelector<HTMLButtonElement>('[data-testid="decline-confirm"]')!.click();
+    expect(declined).toEqual(['o-1']);
   });
 
-  it('keeps the ordinary bill: number fallback name, party size, formatted total', () => {
-    arrange(table({ number: 12, displayName: undefined }), area('Garden Café 🌿'), party());
-
-    component.handlePrintBill();
-
-    const doc = writtenDocument();
-    expect(doc.title).toBe('Bill – Table 12');
-    expect(doc.querySelector('h2')!.textContent).toBe('Table 12');
-    expect(doc.querySelector('.sub')!.textContent).toBe('Garden Café 🌿 · Party of 3');
-    const total = doc.querySelector('tr.total')!;
-    expect(total.textContent).toContain('TOTAL');
-    expect(total.textContent).toContain(`UGX ${(45000).toLocaleString()}`);
-    expect(fakeDoc.close).toHaveBeenCalled();
+  it('a round that cannot be made: destructive badge, Confirm disabled and inert', () => {
+    const el = render(detail([round({ cannotBeMade: { reason: 'item_sold_out', itemName: 'Rolex' } })]));
+    const confirm = el.querySelector<HTMLButtonElement>('[data-testid="confirm-round"]')!;
+    expect(confirm.disabled).toBeTrue();
+    const emitted: string[] = [];
+    fixture.componentInstance.confirmRound.subscribe(id => emitted.push(id));
+    fixture.componentInstance.onConfirm({ round: round(), detail: round({ cannotBeMade: { reason: 'x', itemName: 'Rolex' } }) });
+    expect(emitted).toEqual([]);
+    expect(el.querySelector('[data-testid="cannot-be-made"]')?.textContent?.trim()).toBe('Cannot be made — Rolex');
   });
 
-  it('renders an empty sub-heading area when the table has no area (existing ?? fallback)', () => {
-    component.tables = [table({ areaId: undefined })];
-    component.areas = [area('Unused')];
-    component.seatedParties = [party()];
-    component.tableId = 't1';
-
-    component.handlePrintBill();
-
-    expect(writtenDocument().querySelector('.sub')!.textContent).toBe(' · Party of 3');
+  it('a released round has no Confirm or Decline', () => {
+    const el = render(detail([round({ state: 'released', heldSince: null, releasedAt: '2026-11-03T19:00:00+03:00' })]));
+    expect(el.querySelector('[data-testid="confirm-round"]')).toBeNull();
+    expect(el.querySelector('[data-testid="decline-round"]')).toBeNull();
   });
 
-  it('writes nothing when the popup is blocked', () => {
-    arrange(table(), area(MARKER), party());
-    openSpy.and.returnValue(null);
-
-    expect(() => component.handlePrintBill()).not.toThrow();
-    expect(fakeDoc.write).not.toHaveBeenCalled();
-  });
-
-  it('opens no window when no party is seated', () => {
-    component.tables = [table()];
-    component.areas = [area('Main')];
-    component.seatedParties = [];
-    component.tableId = 't1';
-
-    component.handlePrintBill();
-
-    expect(openSpy).not.toHaveBeenCalled();
+  it('the status action for the current status is disabled; the others emit', () => {
+    const el = render(detail([], { status: 'dirty', occupied: false, needsStaff: false, visit: null }));
+    const emitted: string[] = [];
+    fixture.componentInstance.setStatus.subscribe(s => emitted.push(s));
+    const action = (s: string) => el.querySelector<HTMLButtonElement>(`[data-status="${s}"]`)!;
+    expect(action('dirty').disabled).toBeTrue();
+    action('available').click();
+    action('out_of_service').click();
+    expect(emitted).toEqual(['available', 'out_of_service']);
   });
 });
