@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
 import { FloorRound, FloorTable } from '../../models/floor.models';
 import {
   CHIP_CLASSES,
@@ -29,7 +28,6 @@ const ROUNDS_ON_CARD = 3;
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-floor-plan-canvas',
   standalone: true,
-  imports: [NgTemplateOutlet],
   templateUrl: './floor-plan-canvas.component.html',
   host: { class: 'block' },
 })
@@ -47,12 +45,14 @@ export class FloorPlanCanvasComponent {
   readonly fulfilmentLabel = FULFILMENT_LABEL;
   readonly roundsOnCard = ROUNDS_ON_CARD;
 
-  get waitingTables(): FloorTable[] {
-    return this.tables.filter(t => t.needsStaff);
-  }
-
-  get otherTables(): FloorTable[] {
-    return this.tables.filter(t => !t.needsStaff);
+  /** Tables that need staff, then the rest — two titled groups, the second alone when none wait. */
+  get groups(): { key: 'waiting' | 'other'; title: string; tables: FloorTable[] }[] {
+    const waiting = this.tables.filter(t => t.needsStaff);
+    const other = this.tables.filter(t => !t.needsStaff);
+    const groups: { key: 'waiting' | 'other'; title: string; tables: FloorTable[] }[] = [];
+    if (waiting.length) groups.push({ key: 'waiting', title: 'Needs staff', tables: waiting });
+    if (other.length) groups.push({ key: 'other', title: waiting.length ? 'Other tables' : 'All tables', tables: other });
+    return groups;
   }
 
   cardClass(t: FloorTable): string {
