@@ -2974,6 +2974,75 @@ Admin approval and the set id move. Backend `0513adb` and its serving note are
   `main`'s `pilot-19` policy put back. The release suite runs **1537** tests on Node
   24.22.2, against 1531 on `main` (both measured).
 
+### The 2026-11-04 Admin refresh (compatible set `2026-11-04-pilot-21`)
+
+Admin merged #57 as `d73dd04`, #56 as `547e647` and #58 as `4765786`, in that order. Admin
+CI run `41884201009` succeeded on `4765786`, and Deploy Admin run `41884686612` promoted
+it. Those conclusions were read through the API; the logs were not read. A public read of
+`/release.txt` returned `4765786`, `no-store`, at 2026-11-04T20:48:03Z. This refresh
+approves `4765786`. Only the Admin approval and the set id move. Backend `0513adb` and its
+serving note are `pilot-12`'s, the owner state is `source-protection-recorded`, and nothing
+is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `4765786c5db4a95393796651a0b6cfc385111d73` (#58) | `db3d39e0…` | `deploy.yml` `0f70ddfa…` (unchanged) | `sha256:e02a39e3683f6c7510b3183b7871c74a9823973c8be1eb53060cc851f6f94f74` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a fresh clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `52643af` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  walked the commit's tree to the `deploy.yml` blob and computed the canonical digest, and
+  it agrees. `52643af`'s `8606297e…` and `4eb249f`'s `22661fda…` reproduce as controls.
+- **Admin `52643af..4765786` is three first-parent merges, reviewed together.** Each
+  merge's tree equals its PR head's (#57 `4796d9a`, `93b1f662…`; #56 `4bbf8c4`,
+  `bc436244…`; #58 `02a2f06`, `db3d39e0…`), so the merged source is the reviewed source:
+  - #57 removed the application `http-cache-semantics` 4.2.0 exception
+    (GHSA-ch52-4w7c-c8xp) from `dependency-audit/policy.json` as STALE, not a remediation:
+    GitHub withdrew the advisory on 2026-10-28. It also moved `follow-redirects` 1.16.1 →
+    1.16.2 lock-only (one `dev` entry; `package.json` is byte-identical), with its tests,
+    `dependency-audit/README.md`, `release/README.md` (four lines of documentation) and
+    `CLAUDE.md`;
+  - #56 shows the backend's `payment_timing_pay_first_unavailable` 409 inside the
+    payment-timing editor, rather than handling it as a concurrency conflict:
+    `extractErrorCode` in `src/app/core/api/error-message.ts`, a branch in
+    `src/app/features/restaurant-tabs.pages.ts`, the matching refusal in the development
+    mock (`src/app/dev/mock-restaurant-api.ts`), their specs and `CLAUDE.md`;
+  - #58 renewed the three scanner-graph `undici` 6.29.0 tooling exceptions
+    (GHSA-xjj6-f33q-929c, GHSA-2m5v-pch6-74hx and GHSA-qrxm-fqhp-jwvm) from 2026-11-30 to
+    2026-12-31, re-measured and re-approved, with its tests and both READMEs.
+
+  No workflow, `dependency-audit/lib/`, `package.json` or `angular.json` file changed, and
+  `release/` changed only in its README. Admin's trusted verifier tree `dependency-audit/`
+  moved only in its policy, README and tests.
+- **The receipt-bearing `deploy.yml` is unchanged** (blob `0f70ddfa…`, as at `52643af` and
+  `4eb249f`), and no workflow file moved, so the `pilot-19` and `pilot-20` reviews of its
+  jobs and token flow still hold as written: `deploy` is still the only job in any Admin
+  workflow holding `id-token: write`.
+- **One refusal recorded.** Readiness run `41907089858` (on `783187b`) read the peers at
+  20:29Z, after Deploy Admin run `41884686612` promoted `4765786` (18:11-18:13Z), and
+  refused it under `pilot-20`: `sha256:a1e86939…`, five reasons, beside a fresh assessment
+  that passed with approved exceptions. The digest is the one the readiness record printed
+  in the job log; the gate artifact was not downloaded. `d73dd04` (#57, Deploy Admin run
+  `41856024813`) and `547e647` (#56, Deploy Admin run `41857442221`) served in between,
+  and no readiness run observed either: the runs on either side read the peers on
+  2026-11-03 at 22:33Z and on 2026-11-04 at 20:29Z. With every other fact held fixed, the
+  refresh removes `peers.admin_serving_unapproved` and nothing else, and returns the
+  four-reason wait `sha256:01536d3a…`. Readiness run `41731844316` (on `e908371`) recorded
+  that wait under `pilot-20`. The `pilot-20` section above says no run had; that note is
+  older than the run and is left as written. No run has recorded the wait under `pilot-21`.
+- **What it does not resolve.** The four standing reasons
+  (`peers.backend_serving_unverified`, the two `prerequisite.legacy_publisher_*` reasons
+  and `served.bootstrap_unauthorized`) stand. This approval activates no publisher,
+  establishes no backend runtime identity and enables no publication. A later Admin head
+  is not implicitly approved: the next Admin deployment turns the next readiness run red
+  again until its own receipt is reviewed.
+- **Replaced, not joined.** The `52643af` receipt stays under `peers/` as history. The
+  committed-policy and journey-observation suites run **257** tests together (251 on
+  `main`): the six added are the ones the new row generates, and 20 of them fail with
+  `main`'s `pilot-20` policy put back. The release suite runs **1543** tests on
+  Node 24.22.1, against 1537 on `main` (both measured).
+
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
 adapter and simulation suites then prove the CLI feeds them what the world says.
