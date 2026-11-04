@@ -3043,6 +3043,61 @@ is added to `publication.readiness.awaiting`.
   `main`'s `pilot-20` policy put back. The release suite runs **1543** tests on
   Node 24.22.1, against 1537 on `main` (both measured).
 
+### The second 2026-11-04 Admin refresh (compatible set `2026-11-04-pilot-22`)
+
+Admin merged #59 as `efdeadc` at 21:05Z. That was three minutes before this repository
+merged `pilot-21` (#799, 21:08Z), which approved its parent `4765786`, so `pilot-21` was
+already superseded when it landed. Admin CI run `41912770133` succeeded on `efdeadc`, and
+Deploy Admin run `41913220128` promoted it. Those conclusions were read through the API;
+the logs were not read. Public reads of `/release.txt` returned `efdeadc`, `no-store`, at
+2026-11-04T21:38:39Z and again before this change was opened. Admin `main` was `efdeadc` at
+both reads. This refresh approves `efdeadc`. Only the Admin approval and the set id move.
+Backend `0513adb` and its serving note are `pilot-12`'s, the owner state is
+`source-protection-recorded`, and nothing is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `efdeadcbe6be6a7faaaaf8c84a0abf0184783f18` (#59) | `02b54c01…` | `deploy.yml` `0f70ddfa…` (unchanged) | `sha256:002c6e30391490c9c248f7bad1e0816e9b74d135ff26b21df63758f8e1a9ff38` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a fresh clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `4765786` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  walked the commit's tree to the `deploy.yml` blob and computed the canonical digest, and
+  it agrees. `4765786`'s `e02a39e3…` and `52643af`'s `8606297e…` reproduce as controls.
+- **Admin `4765786..efdeadc` is one first-parent merge.** #59's tree equals its PR head's
+  (`bccf51f`, `02b54c01…`), so the merged source is the reviewed source. #59 (Dependabot)
+  moved the SHA-pinned `anthropics/claude-code-action` from v1.0.262 (`925afb53…`) to
+  v1.0.266 (`d535f517…`), one `uses:` line in each of `claude.yml` (line 51) and
+  `claude-code-review.yml` (line 46), and changed nothing else. The upstream `v1.0.266`
+  tag is annotated (`18bb01f1…`) and dereferences to the pinned `d535f517…`. Neither
+  workflow holds `id-token`: their `permissions` blocks are unchanged (`claude.yml` 39-42,
+  `claude-code-review.yml` 34-36). No `release/`, `dependency-audit/`, `src/`,
+  `package.json`, lock or `angular.json` file changed.
+- **The receipt-bearing `deploy.yml` is unchanged** (blob `0f70ddfa…`, as at `4765786`,
+  `52643af` and `4eb249f`), so the `pilot-19` and `pilot-20` reviews of its jobs and token
+  flow still hold as written: `deploy` is still the only job in any Admin workflow holding
+  `id-token: write`.
+- **One refusal recorded.** Readiness run `41914147492` (on `d73e778`, the #799 merge)
+  read the peers at 21:14Z, after Deploy Admin run `41913220128` promoted `efdeadc`
+  (21:08-21:10Z), and refused it under `pilot-21`: `sha256:7721e928…`, five reasons, beside
+  a fresh assessment that passed. The digest is the one the readiness record printed in the
+  job log; the gate artifact was not downloaded. With every other fact held fixed, the
+  refresh removes `peers.admin_serving_unapproved` and nothing else, and returns the
+  four-reason wait `sha256:01536d3a…`. No run has recorded that wait under `pilot-21` or
+  `pilot-22`.
+- **What it does not resolve.** The four standing reasons
+  (`peers.backend_serving_unverified`, the two `prerequisite.legacy_publisher_*` reasons
+  and `served.bootstrap_unauthorized`) stand. This approval activates no publisher,
+  establishes no backend runtime identity and enables no publication. A later Admin head
+  is not implicitly approved: the next Admin deployment turns the next readiness run red
+  again until its own receipt is reviewed.
+- **Replaced, not joined.** The `4765786` receipt stays under `peers/` as history. The
+  committed-policy and journey-observation suites run **263** tests together (257 on
+  `main`): the six added are the ones the new row generates, and 20 of them fail with
+  `main`'s `pilot-21` policy put back. The release suite runs **1549** tests on
+  Node 24.22.1, against 1543 on `main` (both measured).
+
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
 adapter and simulation suites then prove the CLI feeds them what the world says.
