@@ -5,7 +5,7 @@ import { MOCK_FLOOR_TABLES, MockTableSeed } from '../data/floor-mock-data';
 import {
   FLOOR_CONTRACT,
   FloorStatusAction,
-  FloorTableStatus,
+  CommandRoundState,
   FulfilmentStatus,
   PaymentTiming,
   RoundCommand,
@@ -15,6 +15,7 @@ import {
   WireFloor,
   WireFloorTable,
   WireFloorTableDetail,
+  WireCommandRound,
   WireRound,
   WireRoundCommandOk,
   WireRoundDetail,
@@ -38,7 +39,7 @@ export interface FloorTransport {
   setTableStatus(restaurantId: string, tableId: string, status: FloorStatusAction): Observable<unknown>;
 }
 
-type MockRoundState = 'held' | 'released' | 'declined' | 'cancelled' | 'served';
+type MockRoundState = CommandRoundState;
 
 interface MockRound {
   orderId: string;
@@ -59,14 +60,23 @@ interface MockTable {
   number: number;
   displayName: string;
   areaId: string | null;
-  status: FloorTableStatus;
+  /** As stored: may be outside the five (D-17), which the view reads as "Status unknown". */
+  status: string;
   menuOnly: boolean;
   visit: { id: string; openedAt: number } | null;
   rounds: MockRound[];
 }
 
+/**
+ * The restaurant's lifecycle, as far as the floor can tell (C-2). A `suspended` (or
+ * offboarded) restaurant leaves no member of staff holding the `tables` module, so
+ * EVERY floor route answers the one 404. `onboarding` is where admission refuses a
+ * DINER round `restaurant_not_trading` while access still holds.
+ */
+export type MockLifecycle = 'live' | 'onboarding' | 'suspended';
+
 export interface MockFloorDb {
-  restaurant: { acceptingOrders: boolean; paymentTiming: PaymentTiming | null; trading: boolean };
+  restaurant: { acceptingOrders: boolean; paymentTiming: PaymentTiming | null; lifecycle: MockLifecycle };
   tables: MockTable[];
 }
 
@@ -75,10 +85,12 @@ const MINUTE = 60_000;
 const STALE_AFTER_MS = 15 * MINUTE;
 const EAT_OFFSET_MS = 3 * 60 * MINUTE;
 
-/** ISO 8601 with the restaurant's offset (+03:00), as the backend answers. */
+/** ISO 8601 in the platform's zone (+03:00) to the millisecond, as the backend answers (D-15). */
 export function toEatIso(ms: number): string {
-  return new Date(ms + EAT_OFFSET_MS).toISOString().replace(/\.\d{3}Z$/, '+03:00');
+  return new Date(ms + EAT_OFFSET_MS).toISOString().replace(/Z$/, '+03:00');
 }
+
+const NOT_FOUND = { status: 404, message: 'Not found' };
 
 const LIVE: readonly MockRoundState[] = ['held', 'released'];
 
@@ -112,7 +124,7 @@ export class FloorMockBackend implements FloorTransport {
     const now = this.clock();
     const ago = (min: number) => now - min * MINUTE;
     this._db = {
-      restaurant: { acceptingOrders: true, paymentTiming: 'pay_after', trading: true },
+      restaurant: { acceptingOrders: true, paymentTiming: 'pay_after', lifecycle: 'live' },
       tables: seeds.map(t => ({
         id: t.id,
         number: t.number,
@@ -128,7 +140,7 @@ export class FloorMockBackend implements FloorTransport {
           source: r.source,
           acceptedAt: ago(r.acceptedMinAgo),
           heldSince: r.state === 'held' ? ago(r.sinceMinAgo) : null,
-          releasedAt: r.state === 'released' ? ago(r.sinceMinAgo) : null,
+          releasedAt: r.state === 'released' && !r.releaseUnrecorded ? ago(r.sinceMinAgo) : null,
           fulfilmentStatus: r.fulfilmentStatus,
           items: r.items.map(i => ({ ...i, extras: i.extras.map(e => ({ ...e })), modifiers: [...i.modifiers] })),
           value: r.value,
@@ -154,30 +166,41 @@ export class FloorMockBackend implements FloorTransport {
   // ── Transport ──────────────────────────────────────────────────
 
   getFloor(restaurantId: string): Observable<unknown> {
-    return this.answer(FloorMockBackend.READ_DELAY_MS, () => this.ok('Floor', this.floor(restaurantId)));
+    return this.answer(FloorMockBackend.READ_DELAY_MS, () => {
+      this.admit();
+      return this.ok('Floor retrieved', this.floor(restaurantId));
+    });
   }
 
   getTable(_restaurantId: string, tableId: string): Observable<unknown> {
     return this.answer(FloorMockBackend.READ_DELAY_MS, () => {
+      this.admit();
       const t = this.table(tableId);
-      if (!t) throw this.error(404, { status: 404, message: 'Not found.' });
-      return this.ok('Table', this.tableDetail(t));
+      if (!t) throw this.error(404, NOT_FOUND);
+      return this.ok('Table retrieved', this.tableDetail(t));
     });
   }
 
   command(_restaurantId: string, orderId: string, command: RoundCommand): Observable<unknown> {
-    return this.answer(FloorMockBackend.COMMAND_DELAY_MS, () =>
-      command === 'confirm' ? this.confirm(orderId) : this.decline(orderId),
-    );
+    return this.answer(FloorMockBackend.COMMAND_DELAY_MS, () => {
+      this.admit();
+      return command === 'confirm' ? this.confirm(orderId) : this.decline(orderId);
+    });
   }
 
+  /** `table-actions/update-status/`: answers the table as it now is. */
   setTableStatus(_restaurantId: string, tableId: string, status: FloorStatusAction): Observable<unknown> {
     return this.answer(FloorMockBackend.COMMAND_DELAY_MS, () => {
       const t = this.table(tableId);
-      if (!t) throw this.error(404, { status: 404, message: 'Not found.' });
+      if (!t) throw this.error(404, { status: 404, message: 'Table not found' });
       t.status = status;
-      return this.ok('Table status updated', { id: t.id, status: t.status });
+      return this.ok('Table status updated successfully', { id: t.id, number: t.number, status: t.status });
     });
+  }
+
+  /** C-2: at a suspended restaurant nobody holds the `tables` module, so every floor route is the one 404. */
+  private admit(): void {
+    if (this.db.restaurant.lifecycle === 'suspended') throw this.error(404, NOT_FOUND);
   }
 
   // ── Rules ──────────────────────────────────────────────────────
@@ -187,12 +210,17 @@ export class FloorMockBackend implements FloorTransport {
     if (round.state === 'released') return this.commandOk('Already confirmed', round, false);
     if (round.state === 'declined') throw this.refuse('round_declined', round);
     if (round.state !== 'held') throw this.refuse('round_not_held', round);
-    if (!this.db.restaurant.trading) throw this.refuse('restaurant_not_trading', round);
+    // Admission (C-2): a DINER round at a restaurant still onboarding.
+    if (round.source === 'diner' && this.db.restaurant.lifecycle === 'onboarding') {
+      throw this.refuse('restaurant_not_trading', round);
+    }
+    // Operational eligibility. A pause and a menu-only table bind diner rounds only;
+    // table liveness binds every provenance, staff rounds included (C-1).
     if (round.source === 'diner') {
       if (!this.db.restaurant.acceptingOrders) throw this.refuse('ordering_paused', round);
       if (table.menuOnly) throw this.refuse('table_menu_only', round);
-      if (table.status === 'out_of_service') throw this.refuse('table_out_of_service', round);
     }
+    if (table.status === 'out_of_service') throw this.refuse('table_out_of_service', round);
     if (round.cannotBeMadeItem) throw this.refuse('cannot_be_made', round, round.cannotBeMadeItem);
     round.state = 'released';
     round.releasedAt = this.clock();
@@ -206,7 +234,6 @@ export class FloorMockBackend implements FloorTransport {
     if (round.state === 'declined') return this.commandOk('Already declined', round, false);
     if (round.state === 'released') throw this.refuse('round_released', round);
     if (round.state !== 'held') throw this.refuse('round_not_held', round);
-    if (!this.db.restaurant.trading) throw this.refuse('restaurant_not_trading', round);
     round.state = 'declined';
     round.heldSince = null;
     return this.commandOk('Order declined', round, true);
@@ -217,7 +244,7 @@ export class FloorMockBackend implements FloorTransport {
       const round = table.rounds.find(r => r.orderId === orderId);
       if (round) return { table, round };
     }
-    throw this.error(404, { status: 404, message: 'Not found.' });
+    throw this.error(404, NOT_FOUND);
   }
 
   // ── Serialisation (contract v1) ────────────────────────────────
@@ -272,13 +299,14 @@ export class FloorMockBackend implements FloorTransport {
     };
   }
 
-  private roundObject(r: MockRound, now: number): Omit<WireRound, 'state'> & { state: string } {
+  private roundObject(r: MockRound, now: number): WireCommandRound {
     return {
       order_id: r.orderId,
       round_number: r.roundNumber,
       state: r.state,
       source: r.source,
       accepted_at: toEatIso(r.acceptedAt),
+      accepted_at_provenance: 'acceptance',
       held_since: r.state === 'held' && r.heldSince !== null ? toEatIso(r.heldSince) : null,
       released_at: r.state === 'released' && r.releasedAt !== null ? toEatIso(r.releasedAt) : null,
       stale: r.state === 'held' && r.heldSince !== null && now - r.heldSince >= STALE_AFTER_MS,
@@ -298,13 +326,15 @@ export class FloorMockBackend implements FloorTransport {
     return this.ok(message, { round: this.roundObject(round, this.clock()), changed });
   }
 
+  /** The kitchen's `_conflict` envelope (A-5): reason, state and the round as it now is. */
   private refuse(reason: RoundRefusalReason, round: MockRound, itemName?: string): HttpErrorResponse {
     const body: WireRoundRefusal = {
       status: 409,
       message: `Refused: ${reason}`,
       reason,
       state: round.state,
-      ...(itemName ? { item_name: itemName } : {}),
+      ...(itemName ? { item_name: itemName, cannot_be_made: { reason: 'item_sold_out', item_name: itemName } } : {}),
+      data: { round: this.roundObject(round, this.clock()) },
     };
     return this.error(409, body);
   }

@@ -1987,8 +1987,9 @@ so keep it current when conventions change.
   convention split, so the notice is UNREACHABLE in the running app until that flag
   flips — inventing one in the mock would be inventing data
 - Dashboard responsiveness: ✅ Complete
-- Phase 3 (Tables module): 🔄 production ships the Setup View only (route `dining-tables`);
-  the Step 2 floor view exists only in a development build until FE-C (floor-view sub-bullet below)
+- Phase 3 (Tables module): ✅ the Setup View and, since FE-C, the Step 2 floor view are
+  both live in production (route `dining-tables`, Floor/Setup toggle; floor-view
+  sub-bullet below)
   - Setup View (areas, tables): ✅ wired to real API (`USE_MOCK_SETUP = false`);
     blocked deletes (e.g. an area that still has tables) surface the backend
     message as a single toast (see error-handling note below)
@@ -2004,59 +2005,108 @@ so keep it current when conventions change.
     printed QR encodes the opaque, signed `RestaurantTable.qrCredential` (backend
     PR 7A), never the table UUID; the QR-preview modal renders/copies/downloads/
     prints ONLY with a non-empty credential
-  - **Floor view (Step 2, FE-B): built on MOCK data, HIDDEN IN PRODUCTION until FE-C.**
-    🔄 The Tables page's Service view is rebuilt as the floor view on floor contract
-    v1 (`models/floor.models.ts`) and `FloorService` (`services/floor.service.ts`,
-    `static USE_MOCK_DATA = true`). FE-C wires the real endpoints and makes it
-    visible. What it SHOWS: each table's floor status with its held and released
-    rounds, each held round's age and the server's `stale` flag ("Waiting for staff",
-    "Waiting over 15 min"); tables needing staff first (a stable partition that keeps
-    the server's order inside each group); a search, a status filter and the server's
-    `waiting_for_staff` as "N waiting"; and the drawer: rounds with their items,
-    Confirm (the view's ONE brand-red action, disabled when the round cannot be made
-    and offered only once the items have loaded) and Decline (destructive, behind
-    "Decline this order? It will not be sent to the kitchen."), plus Mark dirty, Mark
-    available and Out of service. What it does NOT show: the reservations pane, the
-    reservation modal and the transfer modal stay PARKED (files kept, unrendered,
-    still excluded from the colour-roles gate). The drawer's Seat walk-in, Mark paid,
-    Off-system, Print bill, Waitlist, Change server, Note, Merge and Split were
-    REMOVED from the drawer, with the false payment toasts ("marked as paid",
-    "Off-system payment recorded") and the `isPaid` / `currentCheck` reads. The
-    spatial plan and its Edit-layout mode went too: the contract carries no geometry
-    and orders the floor as a list. **NO PAYMENT CLAIM**: Step 2 records no payment
-    and Dinify is non-custodial, so a bill reads "Payment unknown", a held round's
-    value is "to pay", and the contract's only payment field is `payment: "unknown"`.
-    Rules worth keeping:
-    - **THE GATE IS `isDevMode()`, NOT `environment.production`.** The shipping `uat`
-      build bakes `production: false`, so that flag would open the gate on the live
-      site. `floorViewAvailable(devMode, useMockData)` is `devMode || !useMockData`
-      (`services/floor-view-gate.ts`, `FLOOR_DEV_MODE` token). In every optimised
-      build (`production`, `uat`, `dev`, `staging`) the toggle, the view and a
-      persisted `'service'` selection are unreachable while mock data is on, and
-      `FloorService` also refuses to serve mock data there. Flipping `USE_MOCK_DATA`
-      is what opens the view in production; that, with the transport, is FE-C.
-    - **ONE ADAPTER, ONE TRANSPORT SEAM.** `services/floor-adapter.ts` is the only
-      reader of the snake_case wire, and it refuses what it cannot read (another
-      `contract` tag, a timestamp without an offset, float money, a payment other
-      than `unknown`) rather than guessing. `FloorTransport` is the seam:
-      `FloorMockBackend` today, which keeps the server's rules (stale, ordering,
-      idempotent resends, all eight 409 reasons); an HTTP one in FE-C. FE-C also
-      needs an `ErrorInterceptor` carve-out for the floor command routes so a 409's
-      `reason` reaches the view, as the kitchen command routes have.
-    - **THE SERVER DECIDES.** A command marks the round pending and nothing else. The
-      answer is `ok`, `refused` (a 409; `refusalMessage` has copy for every reason)
-      or `unknown` (no readable answer: never shown as success or failure, and a
-      resend is safe because the server answers `changed: false`).
+  - **Floor view (Step 2): LIVE on BE-D's endpoints since FE-C.** ✅ The Tables
+    page's Service view is the floor view, on floor contract v1
+    (`models/floor.models.ts`; the backend's `docs/FLOOR_CONTRACT.md` is the record,
+    including what BE-D defined, clarified or changed) and `FloorService`
+    (`services/floor.service.ts`, `static USE_MOCK_DATA = false`). FE-B (#797) built
+    it on mock data; FE-C pointed it at the real routes and made it visible in
+    production. What it SHOWS: each table's floor status with its held and released
+    rounds, each held round's age and the server's `stale` flag ("Waiting for
+    staff", "Waiting over 15 min"); tables needing staff first (a stable partition
+    that keeps the server's order inside each group); a search, a status filter and
+    the server's `waiting_for_staff` as "N waiting"; and the drawer: rounds with
+    their items, Confirm (the view's ONE brand-red action, disabled when the round
+    cannot be made and offered only once the items have loaded) and Decline
+    (destructive, behind "Decline this order? It will not be sent to the
+    kitchen."), plus Mark dirty, Mark available and Out of service. What stays
+    HIDDEN: the reservations pane, the reservation modal and the transfer modal
+    stay PARKED (files kept, unrendered, still excluded from the colour-roles
+    gate); Seat walk-in, Mark paid, Off-system, Print bill, Waitlist, Change
+    server, Note, Merge and Split are not in the drawer; the spatial plan and its
+    Edit-layout mode are gone (the contract carries no geometry and orders the
+    floor as a list). Until BE-F and the holds switch nothing is held, so today the
+    view shows occupancy, released rounds and the status actions. **NO PAYMENT
+    CLAIM**: Step 2 records no payment and Dinify is non-custodial, so a bill reads
+    "Payment unknown", a held round's value is "to pay", and the contract's only
+    payment field is `payment: "unknown"`. Rules worth keeping:
+    - **THE ROUTES** live in ONE place, `services/floor-routes.ts` (the portal has
+      no shared API-path registry): GET `floor/?restaurant=`, GET
+      `floor/tables/<id>/?restaurant=` (D-14: `data` is the table object itself),
+      POST `floor/rounds/<order>/confirm/` and `…/decline/` with exactly
+      `{restaurant}`, and POST `restaurant-setup/table-actions/update-status/` with
+      `{table_id, status}` for the three status actions. `FloorHttpTransport`
+      (`services/floor-http-transport.ts`) sends them through the ordinary
+      `HttpClient`, so the real interceptor chain runs. The two READS and the status
+      verb carry `SILENT_FAILURE` (the floor is polled, and the view reports its own
+      states and its one status toast); the two COMMANDS carry nothing.
+    - **THE ERRORINTERCEPTOR CARVE-OUT** is `isFloorRoundCommand`
+      (`_helpers/error.interceptor.ts`), the kitchen's mirrored exactly: matched on
+      method (POST) and PATH SHAPE, placed beside `isKitchenOrderCommand` (after the
+      network and 429 branches, above the generic authenticated-403 branch), and it
+      forwards the `HttpErrorResponse` untouched with no toast, so the 409 reasons,
+      `data.round` and the 404 reach the view. The floor READS and the status verb
+      are NOT carved out. If a command path in `floor-routes.ts` changes, change the
+      matcher and its spec with it.
+    - **REFRESHING.** The floor is read every `POLL_MS` (5 s) while the tab is
+      visible, 5 s after each read settles; consecutive failed reads back off to
+      10 s, then 20 s (the cap), and the first good read snaps back — the kitchen
+      board's pattern (`setTimeout` chain, an 8 s read timeout). NOTHING is read while
+      the tab is hidden (`FLOOR_PAGE_VISIBILITY`, `services/floor-page-visibility.ts`);
+      the floor is read at once when it is shown again. The open drawer is re-read
+      when it opens, straight after every command (not via the floor read) and with
+      each floor read.
+    - **THE SERVER DECIDES.** Confirm and Decline mark the round pending and nothing
+      else. The answer is `ok` (the view takes the returned round), `refused` (a 409:
+      the reason's copy from `refusalMessage`, and the round REPLACED with
+      `data.round` — a round in a state that has left the floor is removed),
+      `gone` (a 404: "This order is no longer available.") or `unknown` (a timeout,
+      offline, a 5xx or 403: never shown as success or failure). Every answer then
+      re-reads the floor and the drawer. Resending is safe by contract
+      (`changed: false`), so there is NO unconfirmed-command store.
+    - **WHAT BE-D CHANGED, AS READ HERE.** C-1: `table_out_of_service` refuses a
+      STAFF round too (the copy no longer says "diner"). C-2: at a suspended or
+      offboarded restaurant every floor route is the one 404, never
+      `restaurant_not_trading` (which is a DINER round at an onboarding restaurant;
+      Decline never answers it). A-3: `accepted_at_provenance` is read, `null` when
+      absent. A-4: a command's round may be `held`, `released`, `declined`,
+      `cancelled`, `served` or `draft`. A-5: every 409 carries `data.round`, and a
+      `cannot_be_made` 409 the `cannot_be_made` object. D-4: a released round with no
+      placement has `released_at: null` — FE-B's adapter refused that, which would
+      have blanked a live floor on any pre-Step-1 order. D-10:
+      `restaurant.payment_timing` is `pay_after`, `pay_first` or `null`;
+      `not_chosen` is refused there. D-15: times carry milliseconds and `+03:00`.
+    - **AN UNKNOWN TABLE STATUS IS ONE TABLE'S PROBLEM** (decision 2). A stored
+      `status` outside the five (D-17) no longer refuses the floor read: the adapter
+      keeps the STRING verbatim (`FloorTable.status` is `string`; narrow with
+      `isKnownTableStatus`), the table reads a neutral "Status unknown", its rounds,
+      Confirm and Decline stay usable, and all three status actions stay enabled,
+      because they are how staff put it right. A NON-string status, and every other
+      malformed field, still refuses the read.
+    - **PRODUCTION NEVER SERVES MOCK DATA.** `FloorMockBackend` stays for specs and a
+      local preview (turn `USE_MOCK_DATA` on in a development build). In any build
+      where `isDevMode()` is false — `production`, `uat`, `dev`, `staging` — a flag
+      left on makes `FloorService` refuse every call (`MOCK_REFUSED`) and
+      `TablesComponent` hide the view, its toggle and a persisted `'service'`
+      selection. The gate is `isDevMode()`, NOT `environment.production`, because
+      the shipping `uat` build bakes `production: false`.
+    - **ONE ADAPTER.** `services/floor-adapter.ts` is the only reader of the
+      snake_case wire, and it refuses what it cannot read (another `contract` tag, a
+      timestamp without an offset, float money, a payment other than `unknown`)
+      rather than guessing.
     - **ONE FENCE.** A floor read that STARTED before a command answer LANDED is
       `superseded`, so an older read cannot undo a newer answer.
     - **`TablesService.updateTableStatus` IS RETIRED.** Its real branch PUT `status`
-      to `restaurant-setup/tables/`, which the backend silently ignores; it now fails
-      loudly. The status actions go through `FloorService.setTableStatus`, which FE-C
-      points at `table-actions/update-status/`.
+      to `restaurant-setup/tables/`, which the backend silently ignores; it fails
+      loudly, and the status actions go through `FloorService.setTableStatus`.
     Pinned by `tables.component.spec.ts` (the production gate),
-    `tables-service-view.component.spec.ts` (end to end over the mock),
-    `table-details-drawer.component.spec.ts`, `floor-presentation.spec.ts`,
-    `floor-adapter.spec.ts` and `floor.service.spec.ts`
+    `tables-service-view.component.spec.ts` (end to end over the mock: polling,
+    back-off, hidden tab, drawer re-reads, `data.round`, the 404, an unknown status),
+    `floor.service.spec.ts` (the live HTTP transport through the real
+    `ErrorInterceptor`: routes, bodies, 409/404, `update-status`, no mock in
+    production), `floor-adapter.spec.ts` (every contract shape),
+    `table-details-drawer.component.spec.ts`, `floor-presentation.spec.ts` and the
+    `floor round commands` block of `error.interceptor.spec.ts`
 - Menu polish pass: ✅ Complete — canonical `discount_details` shape, native
   `preset_tags` arrays, paginated menusections/menuitems, allergens rewired
   onto the `tags` field as the dietary-tag source of truth
@@ -4958,9 +5008,10 @@ writing new tag, price/menu or date-range logic:
   - `USE_MOCK_SETUP = false` — Setup View (areas, tables) is real-wired
   - `USE_MOCK_SERVICE = true` — the parked reservations, waitlist and
     seated-party code, which nothing renders any more
-- `FloorService.USE_MOCK_DATA = true` (a `static`) — the Step 2 floor view runs on
-  `FloorMockBackend`, which answers in floor contract v1. While it is on, the view
-  exists only in a development build (see the floor-view bullet under Phase 3)
+- `FloorService.USE_MOCK_DATA = false` (a `static`) — the Step 2 floor view is
+  real-wired (FE-C). `FloorMockBackend`, which answers in floor contract v1, stays for
+  specs and a local development preview; with the flag on, any non-development build
+  refuses every floor call and hides the view (see the floor-view bullet under Phase 3)
 - KitchenOrderService uses a single `USE_MOCK_DATA = false` flag — the
   Kitchen View is real-wired; the in-memory mock dataset stays dormant behind
   the flag as a design-review aid (flip to `true` locally)
@@ -5070,10 +5121,13 @@ writing new tag, price/menu or date-range logic:
   `restaurant-setup/table-actions/regenerate-qr/` (one `{ table_id }` per call,
   server-signed response). The reservation, waitlist and seated-party endpoints
   exist in the backend and remain unwired (their UI is parked)
-- Floor real endpoints (floor contract v1, BE-D; wired by FE-C, dormant here): GET
-  `floor/?restaurant=`, GET `floor/tables/<id>/?restaurant=`, POST
-  `floor/rounds/<order_id>/confirm/` and `…/decline/` (body `{restaurant}`), and
-  `table-actions/update-status/` for the three status actions
+- Floor real endpoints (floor contract v1, BE-D; LIVE since FE-C, all named in
+  `tables/services/floor-routes.ts`): GET `floor/?restaurant=` (polled every 5 s while
+  visible), GET `floor/tables/<id>/?restaurant=`, POST `floor/rounds/<order_id>/confirm/`
+  and `…/decline/` (body `{restaurant}`), and POST
+  `restaurant-setup/table-actions/update-status/` (body `{table_id, status}`) for the
+  three status actions. All four floor routes need the `tables` module and answer one
+  404 for every scope or permission failure, a suspended restaurant included
 - Kitchen real endpoints: GET `kitchen/orders/active/` + `kitchen/orders/completed/`
   (polled), PUT `kitchen/orders/{id}/fulfilment-status/`,
   `kitchen/orders/{id}/priority/` and `kitchen/orders/{id}/cancel/` (each naming an
@@ -5246,9 +5300,7 @@ writing new tag, price/menu or date-range logic:
   value directly as the login/lookup key; never prepend `+256` or a trunk `0`
   yourself
 - localStorage to httpOnly cookie migration requires backend coordination
-- The floor view (Step 2) runs on mock data and is reachable only in a development
-  build until FE-C wires the floor endpoints and flips `FloorService.USE_MOCK_DATA`.
-  The parked reservations, waitlist and seated-party code still sits on mock data
+- The parked reservations, waitlist and seated-party code still sits on mock data
   (`USE_MOCK_SERVICE = true`); its write methods fail loud in their non-mock branch
   (via `serviceViewNotWired`), so wire the real endpoints before flipping that flag.
   `mapApiTable` also does not yet map `raw.server_id` onto

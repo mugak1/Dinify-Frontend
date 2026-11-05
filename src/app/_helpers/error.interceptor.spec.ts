@@ -861,6 +861,116 @@ describe('ErrorInterceptor', () => {
       expect(typeof caught).toBe('string');
     });
   });
+  // ── Step 2 FE-C: floor round commands keep their status, reason and round ──
+  describe('floor round commands', () => {
+    const round = {
+      order_id: 'o1', round_number: 1, state: 'released', source: 'diner',
+      accepted_at: '2026-11-03T18:58:00.000+03:00', accepted_at_provenance: 'acceptance',
+      held_since: null, released_at: '2026-11-03T19:00:00.000+03:00', stale: false,
+      fulfilment_status: 'new', item_count: 2, value: '16000.00',
+    };
+    const conflictBody = {
+      status: 409, message: 'This order has already been sent to the kitchen.',
+      reason: 'round_released', state: 'released', data: { round },
+    };
+
+    function post(url: string): any {
+      let caught: any;
+      httpClient.post(url, { restaurant: 'r1' }).subscribe({ error: err => (caught = err) });
+      return { flush: (body: object, status: number, statusText: string) => {
+        httpMock.expectOne(url).flush(body, { status, statusText });
+        return caught;
+      } };
+    }
+
+    function signIn(): void {
+      Object.defineProperty(authService, 'userValue', { value: mockUser, configurable: true });
+    }
+
+    for (const command of ['confirm', 'decline']) {
+      it(`forwards a ${command} 409 untouched — status, reason and data.round`, () => {
+        signIn();
+        const caught = post(`/api/v1/floor/rounds/o1/${command}/`).flush(conflictBody, 409, 'Conflict');
+        expect(caught instanceof HttpErrorResponse).toBeTrue();
+        expect(caught?.status).toBe(409);
+        expect(caught?.error?.reason).toBe('round_released');
+        expect(caught?.error?.data?.round?.state).toBe('released');
+        // The drawer renders the reason itself: no global toast beside it.
+        expect(toast.error).not.toHaveBeenCalled();
+      });
+
+      it(`forwards a ${command} 404 untouched, so "no longer available" is legible`, () => {
+        signIn();
+        const caught = post(`/api/v1/floor/rounds/o1/${command}/`).flush(
+          { status: 404, message: 'Not found' }, 404, 'Not Found');
+        expect(caught instanceof HttpErrorResponse).toBeTrue();
+        expect(caught?.status).toBe(404);
+        expect(toast.error).not.toHaveBeenCalled();
+      });
+    }
+
+    it('forwards a 403 for a signed-in operator (above the generic 403 branch, as the kitchen\'s is)', () => {
+      signIn();
+      const caught = post('/api/v1/floor/rounds/o1/confirm/').flush(
+        { status: 403, message: 'Forbidden' }, 403, 'Forbidden');
+      expect(caught?.status).toBe(403);
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(authService.logout).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL: the floor READS keep the ordinary string + toast path', () => {
+      signIn();
+      for (const url of ['/api/v1/floor/?restaurant=r1', '/api/v1/floor/tables/t1/?restaurant=r1']) {
+        let caught: any;
+        httpClient.get(url).subscribe({ error: err => (caught = err) });
+        httpMock.expectOne(url).flush({ status: 404, message: 'Not found' }, { status: 404, statusText: 'Not Found' });
+        expect(typeof caught).withContext(url).toBe('string');
+      }
+      expect(toast.error).toHaveBeenCalledTimes(2);
+    });
+
+    it('CONTROL: the table status verb keeps the ordinary path', () => {
+      signIn();
+      let caught: any;
+      const url = '/api/v1/restaurant-setup/table-actions/update-status/';
+      httpClient.post(url, { table_id: 't1', status: 'dirty' }).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).flush({ status: 404, message: 'Table not found' }, { status: 404, statusText: 'Not Found' });
+      expect(caught).toBe('Table not found');
+      expect(toast.error).toHaveBeenCalledWith('Table not found');
+    });
+
+    it('CONTROL: a GET or PUT to a command path is not carved out', () => {
+      for (const method of ['get', 'put'] as const) {
+        let caught: any;
+        const url = '/api/v1/floor/rounds/o1/confirm/';
+        (method === 'get' ? httpClient.get(url) : httpClient.put(url, {})).subscribe({ error: err => (caught = err) });
+        httpMock.expectOne(url).flush({ message: 'boom' }, { status: 409, statusText: 'Conflict' });
+        expect(typeof caught).withContext(method).toBe('string');
+      }
+    });
+
+    it('CONTROL: does not borrow the carve-out for a URL that merely mentions it', () => {
+      for (const url of [
+        '/api/v1/reports/restaurant/x/?q=floor/rounds/o1/confirm/',
+        '/api/v1/orders/floor/rounds/o1/decline/x/',
+      ]) {
+        let caught: any;
+        httpClient.post(url, {}).subscribe({ error: err => (caught = err) });
+        httpMock.expectOne(url).flush({ message: 'boom' }, { status: 409, statusText: 'Conflict' });
+        expect(typeof caught).withContext(url).toBe('string');
+      }
+    });
+
+    it('CONTROL: a status-0 failure on a command still takes the network branch', () => {
+      routerStub.url = '/dining-tables';
+      connectivityStub.isOffline = () => true;
+      let caught: any;
+      const url = '/api/v1/floor/rounds/o1/confirm/';
+      httpClient.post(url, {}).subscribe({ error: err => (caught = err) });
+      httpMock.expectOne(url).error(new ProgressEvent('error'), { status: 0 });
+      expect(caught).toBe('no network');
+    });
+  });
   // SHELL-FINISH-00: a caller that reports a failure itself opts the request out
   // of the interceptor's toasts. It is honoured in EVERY toasting branch, and it
   // changes nothing else: the same value is still thrown.

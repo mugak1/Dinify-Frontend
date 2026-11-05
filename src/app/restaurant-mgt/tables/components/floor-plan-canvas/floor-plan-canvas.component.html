@@ -28,7 +28,7 @@
             >
               <div class="flex items-start justify-between gap-2">
                 <span class="text-card-title text-foreground">{{ t.displayName }}</span>
-                <span data-testid="table-status" class="text-caption text-muted-foreground whitespace-nowrap">{{ statusLabel[t.status] }}</span>
+                <span data-testid="table-status" class="text-caption text-muted-foreground whitespace-nowrap">{{ statusLabel(t.status) }}</span>
               </div>
 
               @if (t.rounds.length > 0) {

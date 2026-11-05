@@ -9,12 +9,13 @@ import { FloorService } from './services/floor.service';
 import { FLOOR_DEV_MODE, floorViewAvailable } from './services/floor-view-gate';
 
 /**
- * THE PRODUCTION GATE (Step 2, FE-B). The floor view — the Tables page's Service
- * view — runs on mock tables and mock orders until FE-C wires the real endpoints. A
- * live restaurant must never see them, so while `FloorService.USE_MOCK_DATA` is on the
- * view, its Floor/Setup toggle and a persisted 'service' selection exist only in a
- * development build. Every optimised build — `production` and the shipping `uat` —
- * shows the Setup View alone, exactly as before Step 2.
+ * THE PRODUCTION GATE (Step 2). FE-B built the floor view on mock data and hid it in
+ * every optimised build. FE-C wired the real endpoints and turned the mock flag OFF,
+ * which is what makes the view reachable in production — `production` and the shipping
+ * `uat` alike. The guarantee that survives is the stricter one: PRODUCTION NEVER SERVES
+ * MOCK DATA. Were the flag ever left on in a shipped build, the view, its toggle and a
+ * persisted 'service' selection would vanish again (pinned below), and `FloorService`
+ * would refuse to hand out mock tables (`floor.service.spec.ts`).
  */
 describe('floorViewAvailable — the gate', () => {
   it('a production build cannot show the floor while mock data is on', () => {
@@ -27,8 +28,9 @@ describe('floorViewAvailable — the gate', () => {
     expect(floorViewAvailable(false, false)).toBeTrue();
     expect(floorViewAvailable(true, false)).toBeTrue();
   });
-  it('the mock flag is on in this change', () => {
-    expect(FloorService.USE_MOCK_DATA).toBeTrue();
+  it('FE-C: the mock flag is OFF, so the gate is open in every build', () => {
+    expect(FloorService.USE_MOCK_DATA).toBeFalse();
+    expect(floorViewAvailable(false, FloorService.USE_MOCK_DATA)).toBeTrue();
   });
 });
 
@@ -41,7 +43,10 @@ describe('TablesComponent — view state behind the gate', () => {
     return { getItem: () => value, setItem: () => undefined } as unknown as LocalStorageService;
   }
 
-  describe('production build (no dev mode) — the Setup View is the only view', () => {
+  describe('a production build with mock data FORCED ON — the Setup View is the only view', () => {
+    beforeEach(() => (FloorService.USE_MOCK_DATA = true));
+    afterEach(() => (FloorService.USE_MOCK_DATA = false));
+
     it('defaults to the Setup View when nothing is persisted', () => {
       expect(new TablesComponent(auth, storageReturning(null)).activeView).toBe('setup');
     });
@@ -63,7 +68,23 @@ describe('TablesComponent — view state behind the gate', () => {
     });
   });
 
-  describe('development build — the floor preview', () => {
+  describe('a production build, live (FE-C)', () => {
+    it('honours a persisted "service" value and switches both ways', () => {
+      const c = new TablesComponent(auth, storageReturning('service'), false);
+      expect(c.floorViewAvailable).toBeTrue();
+      expect(c.activeView).toBe('service');
+      c.setView('setup');
+      expect(c.activeView).toBe('setup');
+      c.setView('service');
+      expect(c.activeView).toBe('service');
+    });
+
+    it('still defaults to Setup', () => {
+      expect(new TablesComponent(auth, storageReturning(null), false).activeView).toBe('setup');
+    });
+  });
+
+  describe('development build — the floor', () => {
     it('honours a persisted "service" value and switches both ways', () => {
       const c = new TablesComponent(auth, storageReturning('service'), true);
       expect(c.activeView).toBe('service');
@@ -115,9 +136,11 @@ describe('TablesComponent — rendered template', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  afterEach(() => (FloorService.USE_MOCK_DATA = true));
+  afterEach(() => (FloorService.USE_MOCK_DATA = false));
 
-  describe('PRODUCTION GATE: a production build while mock data is on', () => {
+  describe('PRODUCTION NEVER SERVES MOCK DATA: a production build with the mock flag forced on', () => {
+    beforeEach(() => (FloorService.USE_MOCK_DATA = true));
+
     it('renders the Setup View as the sole view', () => {
       const el = render(false);
       expect(el.querySelector('[data-testid="setup-view-stub"]')).toBeTruthy();
@@ -145,7 +168,7 @@ describe('TablesComponent — rendered template', () => {
     });
   });
 
-  describe('a development build (the mock preview)', () => {
+  describe('a development build', () => {
     it('renders the Floor/Setup toggle and opens on Setup', () => {
       const el = render(true);
       const tabs = Array.from(el.querySelectorAll('app-dn-segmented [role="tab"]')).map(t => t.textContent?.trim());
@@ -165,9 +188,23 @@ describe('TablesComponent — rendered template', () => {
     });
   });
 
-  it('once mock data is off (FE-C), a production build shows the toggle', () => {
-    FloorService.USE_MOCK_DATA = false;
-    const el = render(false);
-    expect(el.querySelector('app-dn-segmented')).not.toBeNull();
+  describe('LIVE (FE-C): a production build with mock data off', () => {
+    it('shows the Floor/Setup toggle', () => {
+      const el = render(false);
+      const tabs = Array.from(el.querySelectorAll('app-dn-segmented [role="tab"]')).map(t => t.textContent?.trim());
+      expect(tabs).toEqual(['Floor', 'Setup']);
+    });
+
+    it('opens on Setup and switches to the floor from the toggle', () => {
+      const el = render(false);
+      expect(el.querySelector('[data-testid="setup-view-stub"]')).toBeTruthy();
+      Array.from(el.querySelectorAll<HTMLElement>('app-dn-segmented [role="tab"]')).find(t => t.textContent?.trim() === 'Floor')!.click();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="service-view-stub"]')).toBeTruthy();
+    });
+
+    it('a persisted "service" selection opens the floor', () => {
+      expect(render(false, 'service').querySelector('[data-testid="service-view-stub"]')).toBeTruthy();
+    });
   });
 });

@@ -23,12 +23,14 @@ export class TablesComponent {
   /**
    * Whether the floor view (the Service view, Step 2) may be shown at all.
    *
-   * THE PRODUCTION GATE. While `FloorService.USE_MOCK_DATA` is on, the floor runs on
-   * sample tables and sample orders, and a live restaurant must never see those — so
-   * the view, its toggle and a persisted 'service' selection all exist only in a
-   * development build (`floor-view-gate.ts` says why that is `isDevMode()`, not
-   * `environment.production`). FE-C wires the real endpoints and flips the flag, which
-   * is what opens it in production. Pinned by `tables.component.spec.ts`.
+   * THE PRODUCTION GATE. Since FE-C the floor reads the real endpoints and
+   * `FloorService.USE_MOCK_DATA` is off, so this is true in every build and the floor
+   * is live. The gate stays because the guarantee it carries still matters: were the
+   * mock flag ever left on, the floor would run on sample tables and sample orders, and
+   * a live restaurant must never see those — so the view, its toggle and a persisted
+   * 'service' selection would exist only in a development build again
+   * (`floor-view-gate.ts` says why that is `isDevMode()`, not `environment.production`).
+   * Pinned by `tables.component.spec.ts`.
    */
   readonly floorViewAvailable: boolean;
 
