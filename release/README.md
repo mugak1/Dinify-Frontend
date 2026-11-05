@@ -3098,6 +3098,86 @@ Backend `0513adb` and its serving note are `pilot-12`'s, the owner state is
   `main`'s `pilot-21` policy put back. The release suite runs **1549** tests on
   Node 24.22.1, against 1543 on `main` (both measured).
 
+### The 2026-11-05 Admin refresh (compatible set `2026-11-05-pilot-23`)
+
+Admin merged #60 as `dbbf98c`. Admin CI run `42021774694` succeeded on `dbbf98c`, and
+Deploy Admin run `42022247624` promoted it. Those conclusions were read through the API;
+the logs were not read. Public reads of `/release.txt` returned `dbbf98c`, `no-store`, at
+2026-11-05T18:51:19Z and again before this change was opened. Admin `main` was `dbbf98c` at
+both reads. This refresh approves `dbbf98c`. Only the Admin approval and the set id move.
+Backend `0513adb` and its serving note are `pilot-12`'s, the owner state is
+`source-protection-recorded`, and nothing is added to `publication.readiness.awaiting`.
+
+| peer | commit | tree | source blob | receipt digest |
+|---|---|---|---|---|
+| admin | `dbbf98cb91fb5af5578ffd7852f5811814aaf8cd` (#60) | `287af29e…` | `deploy.yml` `352c6836…` (changed) | `sha256:16633cfe2f83e17c67269c125d577c359c6275dfe864d9acc047c31c9e91cefe` |
+
+- **Source verification.** The unchanged `peer-receipt --write` produced the receipt from
+  a fresh clone of the public repository, at the exact merged commit. The same command
+  reproduced the committed `efdeadc` receipt byte for byte from that clone. An independent
+  Python re-derivation used a separate bare clone. It recomputed each git object's hash,
+  walked the commit's tree to the `deploy.yml` blob and computed the canonical digest, and
+  it agrees. `efdeadc`'s `002c6e30…` and `4765786`'s `e02a39e3…` reproduce as controls.
+- **Admin `efdeadc..dbbf98c` is one first-parent merge.** #60's tree equals its PR head's
+  (`7b1772f`, `287af29e…`), so the merged source is the reviewed source. #60 adds an
+  `AUTO-SKIP-NO-SHIPPED-CHANGE` decision to the forward-only ordering guard in
+  `deploy.yml`, backed by `release/lib/shipped.mjs` (new) and a `shipped-change`
+  subcommand in `release/cli.mjs`, with tests (`release/tests/shipped*.mjs`,
+  `workflow.test.mjs`), `release/README.md` and `CLAUDE.md`. No `src/`, `package.json`,
+  lock, `angular.json`, `dependency-audit/` or other workflow file changed.
+- **The receipt-bearing `deploy.yml` changes, and this is a change to how Admin deploys.**
+  Its blob moved `0f70ddf` → `352c683` (+76/−1: a header comment, a comment above the
+  guard, the guard's forward-move branch and the summary). Line numbers are at `dbbf98c`:
+  - **The new decision can only withhold a deploy.** It lives entirely inside the guard's
+    existing forward-move case (`if [ "$O_STATUS" = "ahead" ] && [ "$O_BASE" = "$SERVED" ]`,
+    line 1233), which used to emit `proceed=true` unconditionally. It now emits
+    `proceed=false` `AUTO-SKIP-NO-SHIPPED-CHANGE` (1264) or the same `proceed=true`
+    `AUTO-PROCEED` as before (1266). It adds no path to AWS.
+  - **Every AWS, S3, SSM and public-check step is still gated on
+    `steps.ordering.outputs.proceed == 'true'`**: role validation (1281), OIDC (1300), the
+    S3 upload (1311), the remote script (1344), SSM (1847) and the public assertion
+    (1935). The stale, same-commit and divergence branches are unchanged.
+  - **A manual dispatch never reaches the check.** The guard emits `proceed=true MANUAL`
+    and exits at line 1186, before reading `/release.txt`.
+  - **A failure inside the check falls through to deploying.** Each read is best effort
+    (`fetch` deletes its file on failure, 1241); a `shipped-change` run that exits
+    non-zero sets `SC_SKIP=false` (1252-1259); and only `skip=true` with code
+    `no_shipped_change` skips (1263), everything else being `AUTO-PROCEED` (1266). The
+    step runs under `set -euo pipefail` (1173), so a failure of the shell itself, rather
+    than of a read or the classifier, turns the step red with no `proceed` output, which
+    gates the AWS steps off as before.
+
+  The new reads are `gh api` GETs with the step's existing `GH_TOKEN`, before OIDC, and
+  the classifier is the trusted verifier checked out from the workflow's own revision.
+  `deploy` is still the only job in any Admin workflow holding `id-token: write` (852),
+  and no job's permissions, `needs` or `uses` changed.
+- **What it means here.** #60 changed `deploy.yml`, so it deployed under the old guard,
+  and this is the one refresh it requires. From now on an Admin merge that changes only
+  not-shipped paths may leave the served commit, and this approval, in place, so the
+  served commit can lag Admin `main`. A refresh approves the SERVED commit, and its review
+  covers any skipped merges beneath it.
+- **One refusal recorded, twice.** Readiness runs `42077257443` (on `94361cc`) and
+  `42080848069` (on `6b66bd1`) read the peers at 17:42Z and 18:05Z, after Deploy Admin run
+  `42022247624` promoted `dbbf98c` (11:50-11:52Z), and refused it under `pilot-22`:
+  `sha256:6208e893…`, five reasons, beside fresh assessments that passed. The digest is
+  the one both readiness records printed in the job log; the gate artifacts were not
+  downloaded. With every other fact held fixed, the refresh removes
+  `peers.admin_serving_unapproved` and nothing else, and returns the four-reason wait
+  `sha256:01536d3a…`. Readiness run `41922967921` (on `0796844`, the `pilot-22` merge)
+  recorded that wait under `pilot-22`; the `pilot-22` section above says no run had, which
+  is older than that run and is left as written. No run has recorded it under `pilot-23`.
+- **What it does not resolve.** The four standing reasons
+  (`peers.backend_serving_unverified`, the two `prerequisite.legacy_publisher_*` reasons
+  and `served.bootstrap_unauthorized`) stand. This approval activates no publisher,
+  establishes no backend runtime identity and enables no publication. A later Admin head
+  that ships something is not implicitly approved: its deployment turns the next readiness
+  run red again until its own receipt is reviewed.
+- **Replaced, not joined.** The `efdeadc` receipt stays under `peers/` as history. The
+  committed-policy and journey-observation suites run **269** tests together (263 on
+  `main`): the six added are the ones the new row generates, and 20 of them fail with
+  `main`'s `pilot-22` policy put back. The release suite runs **1555** tests on
+  Node 24.22.2 (1549 on `main` as measured for `pilot-22`).
+
 `lib/decide.mjs`, `lib/preflight.mjs` and `lib/outcome.mjs` are pure — no clock, no
 filesystem, no network — which is what lets the refusal matrix run from fixtures. The
 adapter and simulation suites then prove the CLI feeds them what the world says.

@@ -1571,6 +1571,76 @@
         "commit": "efdeadcbe6be6a7faaaaf8c84a0abf0184783f18",
         "_note": "A public read of /release.txt returned it, no-store, at 2026-11-04T21:38:39Z, and readiness run 41914147492 read it serving at 21:14Z. Deploy Admin run 41913220128 promoted it (conclusion read through the API, logs not read)."
       }
+    },
+    {
+      "id": "2026-11-05-pilot-23",
+      "_note": "Admin dbbf98c (the #60 merge): an AUTO-SKIP-NO-SHIPPED-CHANGE decision in the forward-only ordering guard of deploy.yml (blob 0f70ddf -> 352c683), backed by release/lib/shipped.mjs and a shipped-change subcommand in release/cli.mjs. The new decision can only withhold a deploy; #60 deployed under the old guard because it changed deploy.yml.",
+      "approved": {
+        "admin": "dbbf98cb91fb5af5578ffd7852f5811814aaf8cd",
+        "backend": "0513adb441828d62faadc1c67799c5432868c33a"
+      },
+      "receipts": [
+        {
+          "peer": "admin",
+          "commit": "dbbf98cb91fb5af5578ffd7852f5811814aaf8cd",
+          "receiptDigest": "sha256:16633cfe2f83e17c67269c125d577c359c6275dfe864d9acc047c31c9e91cefe",
+          "tree": "287af29e61247d0445d7d4d016f89bd05276eb6a",
+          "sources": [
+            {
+              "name": "deployWorkflow",
+              "path": ".github/workflows/deploy.yml",
+              "blob": "352c68366fcb846eae59c78b4cd388490b5fc6ec"
+            }
+          ]
+        }
+      ],
+      "backendServingReason": "no-loaded-runtime-identity",
+      "ownerStates": [
+        "source-protection-recorded"
+      ],
+      "moved": [
+        "admin"
+      ],
+      "removes": [
+        "peers.admin_serving_unapproved"
+      ],
+      "notApproved": [
+        {
+          "commit": "7b1772f0b068b2e395079cf3b70c535ebc96497b",
+          "tree": "287af29e61247d0445d7d4d016f89bd05276eb6a",
+          "_note": "The PR head: the same tree as the merge, a different commit."
+        }
+      ],
+      "refused": [
+        {
+          "adminServes": "dbbf98cb91fb5af5578ffd7852f5811814aaf8cd",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [
+            "peers.admin_serving_unapproved"
+          ],
+          "decisionDigest": "sha256:6208e893b681ed82ec660aa615fc2f3baf8f87d828eaf7276778fc308e7c2dcb",
+          "evidence": "recorded",
+          "runs": [
+            42077257443,
+            42080848069
+          ],
+          "_note": "Jobs 127420662466 (on 94361cc) and 127433152097 (on 6b66bd1). The digest is the one both readiness records printed in the job log; the gate artifacts (13439156990, 13440711608) were not downloaded. Both fresh assessments passed."
+        }
+      ],
+      "decisions": [
+        {
+          "adminServes": "dbbf98cb91fb5af5578ffd7852f5811814aaf8cd",
+          "ownerState": "source-protection-recorded",
+          "unexpected": [],
+          "decisionDigest": "sha256:01536d3a916fdbb6bdc3b7350301d6ee68709510b484dc2f80f883a10e675972",
+          "evidence": "constructed",
+          "_note": "The four-reason wait. It names no Admin commit, so its digest is pilot-22's; readiness run 41922967921 on 0796844 (job 126899909601) recorded it under pilot-22, after the pilot-22 row was written. No run has recorded it under pilot-23."
+        }
+      ],
+      "adminServingObserved": {
+        "commit": "dbbf98cb91fb5af5578ffd7852f5811814aaf8cd",
+        "_note": "A public read of /release.txt returned it, no-store, at 2026-11-05T18:51:19Z, and readiness runs 42077257443 and 42080848069 read it serving at 17:42Z and 18:05Z. Deploy Admin run 42022247624 promoted it (conclusion read through the API, logs not read)."
+      }
     }
   ]
 }
