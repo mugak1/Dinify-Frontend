@@ -12,6 +12,7 @@ import { BasketService } from '../_services/basket.service';
 import { ToastService } from '../_shared/ui/toast/toast.service';
 import { ConnectivityService } from '../_services/connectivity.service';
 import { MenuNavStateService } from './menu/menu-nav-state.service';
+import { readCurrentOrderHeld } from './ongoing-order-banner/current-order-held';
 
 @Component({
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -183,6 +184,7 @@ export class DinerAppComponent implements OnInit, OnDestroy {
     // Seed the live flag from the last known scan so a basket reload paints the
     // right state before the first poll lands.
     this.navState.setTableOngoingOrder(!!this.table?.current_order?.ongoing);
+    this.navState.setTableOngoingOrderHeld(readCurrentOrderHeld(this.table?.current_order));
   }
 
   getTableDetails(id: any): void {
@@ -228,6 +230,7 @@ export class DinerAppComponent implements OnInit, OnDestroy {
         this.restaurant_name = scanned.restaurant.name;
         this.restaurant_id = scanned.restaurant.id;
         this.navState.setTableOngoingOrder(!!scanned.current_order?.ongoing);
+        this.navState.setTableOngoingOrderHeld(readCurrentOrderHeld(scanned.current_order));
       },
       error: err => {
         this.scanInFlightId = null;
@@ -347,6 +350,7 @@ export class DinerAppComponent implements OnInit, OnDestroy {
             // "Checkout unavailable" button stayed stuck until a manual refresh.
             this.ngZone.run(() => {
               this.navState.setTableOngoingOrder(!!scanned.current_order?.ongoing);
+              this.navState.setTableOngoingOrderHeld(readCurrentOrderHeld(scanned.current_order));
               if (this.table) this.table.current_order = scanned.current_order;
             });
           }

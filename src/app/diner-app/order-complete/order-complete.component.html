@@ -7,6 +7,33 @@
     <div class="flex-1">
       <div class="w-full max-w-md mx-auto px-6 pt-3 pb-6">
 
+        <!-- Step 2 (diner round state v1): a HELD or DECLINED round. The kitchen
+             does not have this order, so nothing here celebrates it or says it
+             was sent; the copy is the contract's, from roundCopy(). Released
+             (and every reply with no round, i.e. today's backend) renders the
+             original header below, unchanged. -->
+        @if (roundCopy(); as copy) {
+          <div class="flex flex-col items-center text-center pt-3.5 pb-1.5"
+               role="status" aria-live="polite" data-testid="round-status">
+            <div class="w-[88px] h-[88px] grid place-items-center mb-5">
+              <span class="w-[60px] h-[60px] rounded-full grid place-items-center bg-gray-100 text-gray-600">
+                @if (roundState() === 'declined') {
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
+                  </svg>
+                } @else {
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                  </svg>
+                }
+              </span>
+            </div>
+            <h1 class="font-display text-[32px] font-bold tracking-[-0.02em] text-foreground leading-[1.05] mb-2">{{ copy.heading }}</h1>
+            <p class="font-sans text-base leading-relaxed text-muted-foreground max-w-[30ch]">{{ copy.body }}</p>
+          </div>
+        } @else {
         <!-- Success confirmation header (§3.4): celebratory check badge + copy -->
         <div class="flex flex-col items-center text-center pt-3.5 pb-1.5">
           <div class="check-badge">
@@ -23,6 +50,7 @@
             Sent to the kitchen. We'll bring it over shortly.
           </p>
         </div>
+        }
 
         <!-- Order meta card (§3.5, overridden): two cells — Table + Order # — no ETA -->
         @if (tableNumber() !== null || orderNumberLabel()) {
@@ -43,8 +71,9 @@
           </div>
         }
 
-        <!-- Review capture: only when a real order id was forwarded -->
-        @if (orderId()) {
+        <!-- Review capture: only when a real order id was forwarded, and (Step 2)
+             only once the round is released — never while held or declined -->
+        @if (reviewOffered()) {
           <div class="mt-[30px] text-left">
             <div class="text-center mb-[18px]">
               <h2 class="font-display text-[22px] font-bold tracking-[-0.01em] text-foreground mb-1">How was it?</h2>
@@ -157,7 +186,7 @@
     <!-- Footer actions (§3.8): sticky bar; submit only with a real order id -->
     <div class="footer-bar sticky bottom-0 bg-white px-6 pt-3.5">
       <div class="w-full max-w-md mx-auto">
-        @if (orderId()) {
+        @if (reviewOffered()) {
           <button type="button" app-dn-button variant="cta" (click)="submitReview()"
                   [disabled]="overall() === 0" [loading]="submitting()"
                   class="w-full">

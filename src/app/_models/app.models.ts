@@ -302,6 +302,10 @@ export interface TableScan {
 export interface CurrentOrder {
   ongoing: boolean
   order_id: any
+  /** Step 2 (diner round state v1, OPTIONAL): the ongoing order is a round held
+   *  for staff to confirm. Absent on an older backend; read only through
+   *  `readCurrentOrderHeld`, never directly. */
+  held?: unknown
 }
 export interface RestaurantDetail {
   id: string
