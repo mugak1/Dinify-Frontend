@@ -21,6 +21,7 @@ import {
   FulfilmentStatus,
   RoundCommand,
   RoundRefusalReason,
+  isKnownTableStatus,
 } from '../models/floor.models';
 
 export const TABLE_STATUS_LABEL: Record<FloorTableStatus, string> = {
@@ -30,6 +31,18 @@ export const TABLE_STATUS_LABEL: Record<FloorTableStatus, string> = {
   dirty: 'Dirty',
   out_of_service: 'Out of service',
 };
+
+/**
+ * What a table's status reads as. A stored value outside the five (decision 2, FE-C)
+ * reads "Status unknown": it is neutral grey like every status, its value is kept on
+ * the model rather than guessed, and the drawer's three status actions stay enabled,
+ * because they are how staff put the table right.
+ */
+export const UNKNOWN_STATUS_LABEL = 'Status unknown';
+
+export function tableStatusLabel(status: string): string {
+  return isKnownTableStatus(status) ? TABLE_STATUS_LABEL[status] : UNKNOWN_STATUS_LABEL;
+}
 
 export const STATUS_FILTER_OPTIONS: { value: FloorTableStatus; label: string }[] = (
   Object.keys(TABLE_STATUS_LABEL) as FloorTableStatus[]
@@ -172,14 +185,15 @@ export function refusalMessage(
       return 'This order is no longer waiting for staff. The floor has been refreshed.';
     case 'restaurant_not_trading':
       return command === 'confirm'
-        ? 'Your restaurant isn’t open for orders, so this order can’t be sent to the kitchen.'
+        ? 'Your restaurant isn’t taking diner orders yet, so this order can’t be sent to the kitchen.'
         : 'Your restaurant isn’t open for orders, so this order can’t be changed right now.';
     case 'ordering_paused':
       return 'Ordering is paused, so diner orders can’t be sent to the kitchen. Resume ordering in Settings › Availability first.';
     case 'table_menu_only':
       return 'This table’s QR code is set to menu only, so diner orders from it can’t be sent to the kitchen.';
     case 'table_out_of_service':
-      return 'This table is out of service, so diner orders from it can’t be sent to the kitchen. Mark it available first.';
+      // C-1: table liveness binds staff rounds as well as diner rounds.
+      return 'This table is out of service, so orders from it can’t be sent to the kitchen. Mark it available first.';
     case 'cannot_be_made':
       return itemName
         ? `Cannot be made — ${itemName}. Decline the order, or put the item back in stock first.`
@@ -188,6 +202,13 @@ export function refusalMessage(
       return 'This order changed while you were looking at it. The floor has been refreshed.';
   }
 }
+
+/**
+ * A command answered 404 (D-16, C-2): the order does not exist for this user any more
+ * — it was removed, the restaurant was suspended, or the user lost the `tables`
+ * module. One sentence for all of them, as the server gives one answer for all of them.
+ */
+export const ORDER_GONE_MESSAGE = 'This order is no longer available.';
 
 /** No readable answer: the server may have acted, and resending is safe. */
 export function unknownAnswerMessage(command: RoundCommand): string {

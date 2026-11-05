@@ -22,6 +22,7 @@ describe('TableDetailsDrawerComponent (Step 2)', () => {
       state: 'held',
       source: 'diner',
       acceptedAt: '2026-11-03T18:58:00+03:00',
+      acceptedAtProvenance: 'acceptance',
       heldSince: '2026-11-03T18:58:00+03:00',
       releasedAt: null,
       stale: false,
@@ -133,5 +134,27 @@ describe('TableDetailsDrawerComponent (Step 2)', () => {
     action('available').click();
     action('out_of_service').click();
     expect(emitted).toEqual(['available', 'out_of_service']);
+  });
+
+  it('DECISION 2: an unknown stored status reads "Status unknown", neutral, and all three actions stay enabled', () => {
+    const el = render(detail([round()], { status: 'reserved' }));
+    const chip = el.querySelector('[data-testid="drawer-table-status"]')!;
+    expect((chip.textContent ?? '').trim()).toBe('Status unknown');
+    expect(chip.className).toContain('bg-secondary');
+    const emitted: string[] = [];
+    fixture.componentInstance.setStatus.subscribe(s => emitted.push(s));
+    const actions = Array.from(el.querySelectorAll<HTMLButtonElement>('[data-testid="status-action"]'));
+    expect(actions.map(a => a.disabled)).toEqual([false, false, false]);
+    for (const a of actions) a.click();
+    // None of them is "the current status", so each one is a way to put the table right.
+    expect(emitted).toEqual(['dirty', 'available', 'out_of_service']);
+    expect(el.querySelector<HTMLButtonElement>('[data-testid="confirm-round"]')!.disabled).toBeFalse();
+  });
+
+  it('D-4: a released round with no recorded release shows no "Sent" time, and claims none', () => {
+    const el = render(detail([round({ state: 'released', heldSince: null, releasedAt: null })], { visit: null }));
+    const meta = el.querySelector('[data-testid="drawer-round"] p')!.textContent ?? '';
+    expect(meta).toContain('Placed');
+    expect(meta).not.toContain('Sent');
   });
 });

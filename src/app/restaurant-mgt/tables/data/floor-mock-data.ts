@@ -1,6 +1,7 @@
 /**
- * Sample floor for the Step 2 floor view (mock only; FE-C replaces it with the real
- * floor endpoints). Times are MINUTES BEFORE the mock's clock, so ages read the same
+ * Sample floor for the Step 2 floor view. MOCK ONLY: since FE-C the view reads the
+ * real floor endpoints, and this sample is served only to specs and to a local
+ * development preview (`FloorService.USE_MOCK_DATA`, refused outside a dev build). Times are MINUTES BEFORE the mock's clock, so ages read the same
  * whenever the preview is opened.
  *
  * Every state the view has to draw appears at least once:
@@ -9,8 +10,9 @@
  *   T3  held round, stale (held 22 min)             (needs staff)
  *   T4  held round that cannot be made (sold out)   (needs staff)
  *   T5  two released rounds (ready, preparing)
- *   T6  released round with NO visit, on a table whose floor status is still
- *       "available" — occupancy comes from orders, never from Table.status
+ *   T6  released round with NO visit and no recorded release (`released_at: null`,
+ *       D-4), on a table whose floor status is still "available" — occupancy comes
+ *       from orders, never from Table.status
  *   T7  dirty
  *   T8  out of service
  *   T9  a released round and a fresh held round      (needs staff)
@@ -33,6 +35,8 @@ export interface MockRoundSeed {
   value: string;
   /** Mock-only: the item that would fail the release makeability check. */
   cannotBeMadeItem?: string;
+  /** A released round with no placement: its release was never recorded (D-4). */
+  releaseUnrecorded?: boolean;
 }
 
 export interface MockTableSeed {
@@ -120,6 +124,7 @@ export const MOCK_FLOOR_TABLES: MockTableSeed[] = [
     id: tableId(6), number: 6, displayName: 'T6', areaId: AREA_TERRACE, status: 'available', visitOpenedMinAgo: null,
     rounds: [{
       orderId: orderId(6, 1), roundNumber: 1, state: 'released', source: 'diner', acceptedMinAgo: 25, sinceMinAgo: 25,
+      releaseUnrecorded: true,
       fulfilmentStatus: 'preparing',
       // 3 × 1,500 + 6,000
       items: [item('Chapati', 3), item('Beans', 1)],

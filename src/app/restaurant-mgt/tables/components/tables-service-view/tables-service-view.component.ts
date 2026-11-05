@@ -1,12 +1,16 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
-import { Subject, Subscription, takeUntil, timer } from 'rxjs';
+import { ChangeDetectionStrategy, Component, Inject, OnDestroy, OnInit } from '@angular/core';
+import { Subject, Subscription, takeUntil } from 'rxjs';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
 import { FloorService } from '../../services/floor.service';
+import { FLOOR_PAGE_VISIBILITY, FloorPageVisibility } from '../../services/floor-page-visibility';
 import { ServiceToolbarComponent } from '../service-toolbar/service-toolbar.component';
 import { FloorPlanCanvasComponent } from '../floor-plan-canvas/floor-plan-canvas.component';
 import { DetailState, TableDetailsDrawerComponent } from '../table-details-drawer/table-details-drawer.component';
 import {
+  CannotBeMade,
+  CommandRound,
+  FloorRound,
   FloorSnapshot,
   FloorStatusAction,
   FloorTable,
@@ -16,12 +20,31 @@ import {
   RoundCommandAnswer,
 } from '../../models/floor.models';
 import {
+  ORDER_GONE_MESSAGE,
   STATUS_ACTIONS,
   commandDoneMessage,
   needsStaffFirst,
   refusalMessage,
   unknownAnswerMessage,
 } from '../../utils/floor-presentation';
+
+/**
+ * Put the server's round in place of ours, or drop ours when the server says the round
+ * has left the floor (A-4: declined, cancelled, served or draft). Only what the server
+ * stated is applied; a held round keeps its items and takes the refusal's
+ * `cannot_be_made` when it carried one.
+ */
+function withRound<R extends FloorRound>(
+  rounds: R[],
+  answer: CommandRound,
+  patch: (current: R, live: FloorRound) => R,
+): R[] {
+  if (answer.state !== 'held' && answer.state !== 'released') {
+    return rounds.filter(r => r.orderId !== answer.orderId);
+  }
+  const live = answer as FloorRound;
+  return rounds.map(r => (r.orderId === answer.orderId ? patch(r, live) : r));
+}
 
 /** A copy of `record` without `key` (records here are replaced, never mutated). */
 function without<T>(record: Record<string, T>, key: string): Record<string, T> {
@@ -49,8 +72,22 @@ interface Notice {
  * in the repo and none of them is rendered here. Step 2 records no payment, so nothing
  * on this screen says a payment was taken or recorded: a bill reads "Payment unknown".
  *
+ * LIVE (FE-C). It reads BE-D's floor endpoints. REFRESHING (decision 5): the floor is
+ * re-read every `POLL_MS` (5 s) while the tab is visible, backing off to
+ * `BACKOFF_MS` after consecutive failed reads and snapping back on the first good
+ * one — the kitchen board's pattern. Nothing is read while the tab is hidden, and the
+ * floor is read at once when it becomes visible again. The open drawer is re-read when
+ * it opens, after every command and with each floor read.
+ *
+ * COMMANDS (decision 6). Confirm and Decline mark the round pending, and nothing else.
+ * On 200 the view takes the returned round; on 409 it shows the reason's copy and
+ * replaces its round with `data.round`; on 404 it says "This order is no longer
+ * available."; and in every case it re-reads the floor and the drawer. Resending is
+ * safe by contract, so there is no unconfirmed-command store.
+ *
  * PRODUCTION. While `FloorService.USE_MOCK_DATA` is on, `TablesComponent` renders this
- * view only in a development build (see `floor-view-gate.ts`).
+ * view only in a development build (see `floor-view-gate.ts`); it is off, so this is
+ * the live view.
  */
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -61,8 +98,10 @@ interface Notice {
   host: { class: 'block' },
 })
 export class TablesServiceViewComponent implements OnInit, OnDestroy {
-  /** How often the floor is re-read. `static` so specs can change it. */
-  static POLL_MS = 15_000;
+  /** How often the floor is re-read while the tab is visible. `static` so specs can change it. */
+  static POLL_MS = 5_000;
+  /** The delay after 1, then 2 or more, consecutive failed reads. Snaps back on success. */
+  static BACKOFF_MS: readonly number[] = [10_000, 20_000];
 
   readonly usingMockData = FloorService.USE_MOCK_DATA;
 
@@ -89,11 +128,16 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private floorSub: Subscription | null = null;
   private detailSub: Subscription | null = null;
+  private pollHandle: ReturnType<typeof setTimeout> | null = null;
+  /** Consecutive failed floor reads; drives the back-off. */
+  private failures = 0;
+  private destroyed = false;
 
   constructor(
     private readonly floorService: FloorService,
     private readonly toast: ToastService,
     private readonly auth: AuthenticationService,
+    @Inject(FLOOR_PAGE_VISIBILITY) private readonly visibility: FloorPageVisibility,
   ) {}
 
   private get restaurantId(): string {
@@ -101,41 +145,95 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    timer(0, TablesServiceViewComponent.POLL_MS)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.nowMs = Date.now();
-        this.refresh();
-      });
+    this.visibility.changes.pipe(takeUntil(this.destroy$)).subscribe(() => this.onVisibilityChange());
+    // A view opened in a hidden tab (a restored session, say) reads when it is shown.
+    if (!this.visibility.hidden()) this.refresh();
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.clearPoll();
     this.destroy$.next();
     this.destroy$.complete();
     this.floorSub?.unsubscribe();
     this.detailSub?.unsubscribe();
   }
 
+  // ── Polling ────────────────────────────────────────────────────
+
+  /** Hidden: stop scheduling. Visible again: read at once, which resumes the cycle. */
+  private onVisibilityChange(): void {
+    if (this.visibility.hidden()) {
+      this.clearPoll();
+    } else {
+      this.refresh();
+    }
+  }
+
+  private clearPoll(): void {
+    if (this.pollHandle !== null) {
+      clearTimeout(this.pollHandle);
+      this.pollHandle = null;
+    }
+  }
+
+  /** Schedule the next read. Never while hidden or after destroy. */
+  private scheduleNext(): void {
+    this.clearPoll();
+    if (this.destroyed || this.visibility.hidden()) return;
+    this.pollHandle = setTimeout(() => {
+      this.pollHandle = null;
+      this.refresh();
+    }, this.nextDelayMs());
+  }
+
+  private nextDelayMs(): number {
+    if (this.failures === 0) return TablesServiceViewComponent.POLL_MS;
+    const backoff = TablesServiceViewComponent.BACKOFF_MS;
+    return backoff[Math.min(this.failures, backoff.length) - 1];
+  }
+
   // ── Reads ──────────────────────────────────────────────────────
 
-  refresh(): void {
+  /**
+   * Read the floor now and schedule the next read from when this one settles. Called
+   * by the poll, by "Try again", by a visibility change and after every command, so the
+   * cycle always restarts from the latest read rather than stacking timers.
+   *
+   * `reloadDetail` re-reads the open drawer once the floor lands. A command passes
+   * false and re-reads the drawer itself, at once.
+   */
+  refresh(reloadDetail = true): void {
+    if (this.destroyed) return;
+    this.clearPoll();
+    this.nowMs = Date.now();
     this.floorSub?.unsubscribe();
     this.floorSub = this.floorService.loadFloor(this.restaurantId).subscribe({
       next: read => {
-        if (read.kind === 'superseded') return;
-        if (read.kind === 'invalid') return this.floorFailed();
-        this.floor = read.value;
-        this.receivedAtMs = Date.now();
-        this.nowMs = this.receivedAtMs;
-        this.loadState = 'ready';
-        this.refreshFailed = false;
-        if (this.selectedTableId) this.loadDetail();
+        if (read.kind === 'invalid') {
+          this.floorFailed();
+        } else if (read.kind === 'ok') {
+          this.floor = read.value;
+          this.receivedAtMs = Date.now();
+          this.nowMs = this.receivedAtMs;
+          this.loadState = 'ready';
+          this.refreshFailed = false;
+          this.failures = 0;
+          if (reloadDetail && this.selectedTableId) this.loadDetail();
+        }
+        // `superseded` is an answer older than a command answer: the view keeps what
+        // it has, and it is not a failure.
+        this.scheduleNext();
       },
-      error: () => this.floorFailed(),
+      error: () => {
+        this.floorFailed();
+        this.scheduleNext();
+      },
     });
   }
 
   private floorFailed(): void {
+    this.failures++;
     if (this.floor) this.refreshFailed = true;
     else this.loadState = 'error';
   }
@@ -177,7 +275,8 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
     if (c && c.floor === key.floor && c.search === key.search && c.filter === key.filter) return c.value;
     const q = this.search.trim().toLowerCase();
     const value = needsStaffFirst(this.floor?.tables ?? []).filter(t => {
-      if (this.statusFilter.length > 0 && !this.statusFilter.includes(t.status)) return false;
+      // A table whose status is unknown matches no status filter (decision 2).
+      if (this.statusFilter.length > 0 && !(this.statusFilter as readonly string[]).includes(t.status)) return false;
       if (q && !t.displayName.toLowerCase().includes(q) && !String(t.number).includes(q)) return false;
       return true;
     });
@@ -243,7 +342,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   /**
    * Mark the round pending, send the command, then show the SERVER's answer. Nothing
    * is assumed in between: the round stays as it was until the answer lands, and the
-   * floor is re-read afterwards whatever the answer was.
+   * floor and the open drawer are re-read afterwards whatever the answer was.
    */
   private run(orderId: string, command: RoundCommand): void {
     const tableId = this.selectedTableId;
@@ -261,7 +360,8 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
       .subscribe(answer => {
         this.pending = without(this.pending, orderId);
         this.applyAnswer(tableId, orderId, roundNumber, command, answer);
-        this.refresh();
+        this.refresh(false);
+        this.loadDetail();
       });
   }
 
@@ -274,11 +374,17 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   ): void {
     switch (answer.kind) {
       case 'ok':
-        this.toast.success(commandDoneMessage(command, roundNumber, answer.changed));
-        this.patchDetail(orderId, answer.state);
+        this.toast.success(commandDoneMessage(command, answer.round.roundNumber || roundNumber, answer.changed));
+        this.applyRound(answer.round, null);
         return;
       case 'refused':
         this.setNotice(orderId, tableId, refusalMessage(command, answer.reason, answer.itemName));
+        // A-5: the 409 says where the round now is. Without a readable `data.round`
+        // nothing is replaced, and the re-read settles it.
+        if (answer.round) this.applyRound(answer.round, answer.cannotBeMade);
+        return;
+      case 'gone':
+        this.setNotice(orderId, tableId, ORDER_GONE_MESSAGE);
         return;
       case 'unknown':
         this.setNotice(orderId, tableId, unknownAnswerMessage(command));
@@ -287,21 +393,29 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Show the server's answer on the open drawer until the re-read lands: a released
-   * round reads "Sent to kitchen", a round that left the floor (declined) goes. Only
-   * the STATE the server named is applied; nothing else is invented.
+   * Take the server's round (a 200's `round`, a 409's `data.round`) on the floor and in
+   * the open drawer until the re-reads land. A round that has left the floor goes.
    */
-  private patchDetail(orderId: string, state: string): void {
-    if (!this.detail) return;
-    if (state === 'released') {
-      this.detail = {
-        ...this.detail,
-        rounds: this.detail.rounds.map(r =>
-          r.orderId === orderId ? { ...r, state: 'released', heldSince: null, stale: false, cannotBeMade: null } : r,
+  private applyRound(answer: CommandRound, cannotBeMade: CannotBeMade | null): void {
+    if (this.floor) {
+      this.floor = {
+        ...this.floor,
+        tables: this.floor.tables.map(t =>
+          t.rounds.some(r => r.orderId === answer.orderId)
+            ? { ...t, rounds: withRound(t.rounds, answer, (_r, live) => live) }
+            : t,
         ),
       };
-    } else if (state !== 'held') {
-      this.detail = { ...this.detail, rounds: this.detail.rounds.filter(r => r.orderId !== orderId) };
+    }
+    if (this.detail) {
+      this.detail = {
+        ...this.detail,
+        rounds: withRound(this.detail.rounds, answer, (r, live) => ({
+          ...live,
+          items: r.items,
+          cannotBeMade: live.state === 'held' ? (cannotBeMade ?? r.cannotBeMade) : null,
+        })),
+      };
     }
   }
 
@@ -317,6 +431,8 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
         this.statusPending = null;
         if (answer.kind === 'ok') {
           this.toast.success(`${table.displayName} ${done}`);
+        } else if (answer.kind === 'refused') {
+          this.toast.error(`${table.displayName} wasn’t updated. ${answer.message}`);
         } else {
           this.toast.error(`We couldn’t get an answer about ${table.displayName}. Check the floor and try again.`);
         }
