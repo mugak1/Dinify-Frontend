@@ -182,6 +182,37 @@ describe('DinerAppComponent', () => {
     expect(navState.tableOngoingOrder()).toBeFalse();
   });
 
+  it('Step 2: publishes current_order.held to the shared signal on a valid scan', () => {
+    const navState = TestBed.inject(MenuNavStateService);
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush({
+      data: {
+        id: 'good-id',
+        current_order: { ongoing: true, order_id: 'o1', held: true },
+        restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+      },
+    });
+
+    expect(navState.tableOngoingOrder()).toBeTrue();
+    expect(navState.tableOngoingOrderHeld()).toBeTrue();
+  });
+
+  it('Step 2: today\'s scan (no held flag) leaves the held signal false', () => {
+    const navState = TestBed.inject(MenuNavStateService);
+    navState.setTableOngoingOrderHeld(true);
+    component.getTableDetails('good-id');
+    httpMock.expectOne(r => r.url.includes('table-scan')).flush({
+      data: {
+        id: 'good-id',
+        current_order: { ongoing: true, order_id: 'o1' },
+        restaurant: { id: 'r1', name: 'Test Restaurant', branding_configuration: {} },
+      },
+    });
+
+    expect(navState.tableOngoingOrder()).toBeTrue();
+    expect(navState.tableOngoingOrderHeld()).toBeFalse();
+  });
+
   it('renders the table chip with the table number on a valid scan', () => {
     component.getTableDetails('good-id');
     const req = httpMock.expectOne(r => r.url.includes('table-scan'));

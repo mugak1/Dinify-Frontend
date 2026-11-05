@@ -82,8 +82,75 @@ export interface CheckoutCorrelation {
     readonly fulfilmentStatus: string | null;
     readonly cancelledAt: string | null;
     readonly servedAt: string | null;
+    /** Step 2 — diner round state v1. `null` means the server did not say,
+     *  and a missing round is RELEASED (today's behaviour), never held. */
+    readonly round: DinerRound | null;
   };
   readonly protocol: number;
+}
+
+/**
+ * STEP 2 — DINER ROUND STATE v1 (`current.round`).
+ *
+ * At a pay-after restaurant a diner's first round can be HELD until staff
+ * confirm it on the floor view, and until then the kitchen does not see it.
+ * The server says which of three states the round is in:
+ *
+ *  `held`      waiting for staff to confirm it; the kitchen does not have it.
+ *  `declined`  staff declined it; it will never reach the kitchen.
+ *  `released`  the kitchen has it (also every order with no placement).
+ *
+ * ADDITIVE AND OPTIONAL. An older backend sends no `round`, and a client that
+ * meets one behaves exactly as before: ABSENT MEANS RELEASED. So does a round
+ * this build cannot read — a non-object, or a `state` outside the three words.
+ * Unknown is never guessed into `held`: a guess in either direction would be a
+ * claim the server did not make, and `released` is the only reading that keeps
+ * today's screens byte-for-byte for a server that has not spoken.
+ *
+ * `stale` IS THE SERVER'S FLAG AND NOTHING ELSE. It is computed on the server
+ * (held for at least 15 minutes); this client never derives it from
+ * `held_since` and the device clock. A non-boolean is "not given", i.e. false.
+ * `held_since` is kept only as an offset-bearing ISO instant; a naive or
+ * unparseable value is "not given" (`null`) rather than read against the
+ * device's zone. Neither field can drop the round: the state is the fact the
+ * screens act on, and both of them are subordinate to it.
+ */
+export type DinerRoundState = 'held' | 'declined' | 'released';
+
+export interface DinerRound {
+  readonly state: DinerRoundState;
+  readonly heldSince: string | null;
+  readonly stale: boolean;
+}
+
+/** An ISO-8601 instant WITH an offset (`Z` or `±hh:mm`) — the rule
+ *  `kitchen-wire.ts` applies to `released_at`. */
+const OFFSET_INSTANT =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+function offsetInstant(value: unknown): string | null {
+  if (typeof value !== 'string' || !OFFSET_INSTANT.test(value)) return null;
+  return Number.isFinite(Date.parse(value)) ? value : null;
+}
+
+/**
+ * Read a wire `round` object (`{state, held_since, stale}`), or `null` for
+ * "not given". THE ONE READER: the submit reply, the diner's own order read
+ * and the navigation state that carries the submit reply's round to the
+ * confirmation screen all go through it, so they cannot disagree.
+ */
+export function readDinerRound(raw: unknown): DinerRound | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  const state = r['state'];
+  if (state !== 'held' && state !== 'declined' && state !== 'released') {
+    return null;
+  }
+  return {
+    state,
+    heldSince: state === 'held' ? offsetInstant(r['held_since']) : null,
+    stale: state === 'held' && r['stale'] === true,
+  };
 }
 
 function str(value: unknown): string | null {
@@ -191,6 +258,7 @@ export function readCorrelation(payload: unknown): CheckoutCorrelation | null {
       fulfilmentStatus: str(current['fulfilment_status']),
       cancelledAt: str(current['cancelled_at']),
       servedAt: str(current['served_at']),
+      round: readDinerRound(current['round']),
     },
     protocol,
   };

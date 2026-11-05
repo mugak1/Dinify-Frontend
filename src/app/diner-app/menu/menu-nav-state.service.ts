@@ -50,6 +50,17 @@ export class MenuNavStateService {
     this._tableOngoingOrder.set(value);
   }
 
+  /** Step 2: the table's ongoing order is a round HELD for staff to confirm
+   *  (`current_order.held`, read through `readCurrentOrderHeld`). Owned by the
+   *  diner shell beside `tableOngoingOrder` and set from the same scans; the
+   *  ongoing-order banner reads it to stop saying the order is "being
+   *  prepared" when the kitchen does not have it. False on an older backend. */
+  private readonly _tableOngoingOrderHeld: WritableSignal<boolean> = signal(false);
+  readonly tableOngoingOrderHeld: Signal<boolean> = this._tableOngoingOrderHeld.asReadonly();
+  setTableOngoingOrderHeld(value: boolean): void {
+    this._tableOngoingOrderHeld.set(value);
+  }
+
   /** Item sort mode applied to section items + the featured rail. Hydrated from
    *  the show-menu response (`item_sort_mode`) at each fetch site; `'manual'` =
    *  `listing_position` order. providedIn:'root' means it survives the warm

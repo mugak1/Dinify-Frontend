@@ -1,6 +1,6 @@
 import {
   CHECKOUT_PROTOCOL_CORRELATED, correlationMatches, protocolLevel,
-  readCorrelation,
+  readCorrelation, readDinerRound,
 } from './checkout-correlation';
 
 /**
@@ -118,6 +118,72 @@ describe('checkout correlation', () => {
       // remove, wearing the shape that says it does not.
       expect(readCorrelation({ id: 'o1', accepted: true,
                                checkout_protocol: 2 })).toBeNull();
+    });
+  });
+
+  describe('Step 2: current.round (diner round state v1)', () => {
+    const current = (round?: unknown) => ({
+      order_status: 'pending', fulfilment_status: 'new',
+      cancelled_at: null, served_at: null,
+      ...(round === undefined ? {} : { round }),
+    });
+
+    it('TODAY\'S SHAPE: no round key reads as null (released), every other field intact', () => {
+      const c = readCorrelation(payload())!;
+      expect(c).not.toBeNull();
+      expect(c.current.round).toBeNull();
+      expect(c.current.orderStatus).toBe('pending');
+      expect(c.acceptance.state).toBe('accepted');
+    });
+
+    it('reads a held round with its offset-bearing timestamp and the server\'s stale flag', () => {
+      const c = readCorrelation(payload({ current: current({
+        state: 'held', held_since: '2026-11-05T12:01:09+03:00', stale: true,
+      }) }))!;
+      expect(c.current.round).toEqual({
+        state: 'held', heldSince: '2026-11-05T12:01:09+03:00', stale: true,
+      });
+    });
+
+    it('reads declined and released', () => {
+      for (const state of ['declined', 'released'] as const) {
+        expect(readCorrelation(payload({ current: current({
+          state, held_since: null, stale: false,
+        }) }))!.current.round).toEqual({ state, heldSince: null, stale: false });
+      }
+    });
+
+    for (const [label, round] of [
+      ['an unknown state', { state: 'queued', held_since: null, stale: false }],
+      ['a non-string state', { state: 1 }],
+      ['no state', { stale: true }],
+      ['null', null],
+      ['a string', 'held'],
+      ['an array', [{ state: 'held' }]],
+    ] as [string, unknown][]) {
+      it(`${label} is "not given" (null), and the projection is still read`, () => {
+        const c = readCorrelation(payload({ current: current(round) }));
+        expect(c).not.toBeNull();
+        expect(c!.current.round).toBeNull();
+      });
+    }
+
+    it('a timestamp without an offset is "not given", never read on the device clock', () => {
+      for (const held_since of ['2026-11-05T12:01:09', '2026-11-05', 'soon', 12, '2026-13-45T99:99:99Z']) {
+        expect(readDinerRound({ state: 'held', held_since, stale: false })?.heldSince)
+          .withContext(String(held_since)).toBeNull();
+      }
+      expect(readDinerRound({ state: 'held', held_since: '2026-11-05T09:01:09Z', stale: false })?.heldSince)
+        .toBe('2026-11-05T09:01:09Z');
+    });
+
+    it('stale is only an explicit boolean true, and only on a held round', () => {
+      expect(readDinerRound({ state: 'held', stale: 'true' })?.stale).toBeFalse();
+      expect(readDinerRound({ state: 'held', stale: 1 })?.stale).toBeFalse();
+      expect(readDinerRound({ state: 'held' })?.stale).toBeFalse();
+      expect(readDinerRound({ state: 'released', stale: true })?.stale).toBeFalse();
+      expect(readDinerRound({ state: 'declined', held_since: '2026-11-05T09:01:09Z' })?.heldSince)
+        .toBeNull();
     });
   });
 

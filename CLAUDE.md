@@ -1900,6 +1900,56 @@ so keep it current when conventions change.
   mount read and the hold is memory-backed — the same shipped-UI limit #679
   recorded for H1 and I2-E for the lifecycle walk, and a walkthrough that cannot
   fail would not be evidence
+- **A HELD ROUND IS NOT "SENT TO THE KITCHEN" (Step 2 FE-D, diner round state v1).**
+  ✅ At a pay-after restaurant a diner's first round can be HELD until staff confirm
+  it on the floor view, and the kitchen does not see it until then. Two screens said
+  otherwise for every order. Paired backend: BE-E, which adds the fields; until it
+  lands nothing here changes. **ABSENT MEANS RELEASED, AND SO DOES UNREADABLE**: a
+  missing `round` or `held`, a non-object, or a `state` outside
+  `held`/`declined`/`released` renders today's screens exactly. Never guessed into
+  held. Pinned byte-for-byte by markup fingerprints taken on unmodified `main`
+  (`markup-fingerprint.testing.ts`; re-take them in the same change if a released
+  screen is changed deliberately).
+  - **ONE READER EACH.** `readDinerRound` (`_shared/order/checkout-correlation.ts`,
+    also `CheckoutCorrelation.current.round`) reads `current.round`; `held_since`
+    is kept only as an offset-bearing instant (otherwise `null`), and **`stale` is
+    the SERVER's flag only** (an explicit `true` on a held round); the client never
+    derives it from `held_since` and its clock. `readCurrentOrderHeld`
+    (`ongoing-order-banner/current-order-held.ts`) reads `current_order.held`:
+    an explicit `true` beside `ongoing: true`. The diner shell sets
+    `MenuNavStateService.tableOngoingOrderHeld` from the same three scan sites as
+    `tableOngoingOrder`.
+  - **ORDER-COMPLETE** renders the contract's copy: held "Waiting for staff" /
+    "Waiting for staff to confirm your order." (stale: "Still waiting. Please ask a
+    member of staff."), declined "Order not accepted" / "This order wasn't
+    accepted. Please ask a member of staff.", released today's markup. While held
+    or declined nothing on the screen mentions the kitchen, the review card and
+    its submit button are not offered (`reviewOffered`, also checked inside
+    `submitReview`), and the tab title says the state.
+  - **THE HANDOFF.** Checkout's success path adds two keys to the navigation state
+    it already builds: `round` (the submit reply's `checkout.current.round` in WIRE
+    form, only from a projection it read and correlated; `null` from an older
+    server) and `intentKey` (the order's own idempotency key). The key travels
+    there because `clearIntent()` forgets it from storage straight after
+    navigating, and `history.state` survives a reload of the screen. **IT IS NOT A
+    CREDENTIAL**: the re-read is the existing `GET orders/journey/order-details/?intent=`,
+    already on the capability allowlist, and still needs the diner's table session,
+    which checkout keeps and `DinerSessionInterceptor` attaches. No route, header,
+    capability or contract change; `docs/TENANT_ISOLATION_CLOSURE.md` untouched.
+  - **THE RE-READ** runs only while held and only with a key: every 10 s, one at a
+    time, each bounded at 10 s; it stops for good on released or declined, pauses
+    while the tab is hidden (an immediate read when it is shown again), backs off
+    10 → 20 → 40 → 60 s on failure and resets on success. A read counts only when
+    its projection names THIS key and order; a readable projection with no `round`
+    is released. The read carries `SILENT_FAILURE`, so no failure of it toasts:
+    the `intent=` carve-out alone was not enough, because the interceptor's 429
+    branch runs first (Codex P2 on #801). No withdrawal is offered (Step 3).
+  - **THE BANNER** reads the shared signal itself, so neither host template changed:
+    held reads "Order waiting" / "This table has an order waiting for staff to
+    confirm it. Please ask a member of staff if you need help."
+  Pinned by `order-complete.round-state.spec.ts` (real `ApiService`, `HttpClient`,
+  `DinerSessionInterceptor` and `ErrorInterceptor`), `basket-body.round-handoff.spec.ts`,
+  the banner spec, `checkout-correlation.spec.ts` and `diner-app.component.spec.ts`
 - Diner table-session capability (opaque QR): ✅ the anonymous diner journey now
   runs on a signed table-session capability (backend PR 7A) instead of a raw
   table UUID — a `DinerSessionService` (`_services/diner-session.service.ts`) owns

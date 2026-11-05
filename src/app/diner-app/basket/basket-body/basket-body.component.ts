@@ -2376,6 +2376,15 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
    * Returns the verdict; the caller renders it. Both callers go through here
    * so they cannot form different opinions about one reply.
    */
+  /** Step 2: the raw `checkout.current.round` of a submit reply, for the
+   *  confirmation screen to read through `readDinerRound`. Structured-clonable
+   *  JSON from the server or `null`; never interpreted here. */
+  private wireRound(response: unknown): unknown {
+    const round = (response as { checkout?: { current?: { round?: unknown } } } | null)
+      ?.checkout?.current?.round;
+    return round ?? null;
+  }
+
   private submitVerdict(response: unknown, orderId: string,
                         quoteRef: string | null) {
     const correlation = readCorrelation(response);
@@ -3302,6 +3311,20 @@ export class BasketBodyComponent implements OnInit, AfterViewInit, OnDestroy {
             // matches the KDS. Null when the payload omits it.
             orderNumber: this.order_initiated?.order_details?.order_number ?? null,
             socials: this.restaurant?.socials ?? null,
+            // Step 2 (diner round state v1): whether the round is HELD for
+            // staff, DECLINED or RELEASED, as the submit reply's correlated
+            // projection stated it — forwarded in its WIRE form and read on
+            // the other side by the same `readDinerRound`. Only from a
+            // projection this client read and correlated (`correlation` is
+            // null for an older server, which is released: today's screen).
+            round: correlation ? this.wireRound(response) : null,
+            // The ORDER'S OWN KEY (the idempotency key the diner's order read
+            // resolves within the table session). `clearIntent` below forgets
+            // it from storage, and `history.state` is what survives a reload of
+            // the confirmation screen, so it travels here. Not a credential:
+            // the read still needs the diner's table session, which the
+            // existing interceptor attaches and this does not touch.
+            intentKey: submitOwner?.key ?? null,
           },
         });
 
