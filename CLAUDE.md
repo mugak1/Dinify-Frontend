@@ -1941,8 +1941,9 @@ so keep it current when conventions change.
     while the tab is hidden (an immediate read when it is shown again), backs off
     10 → 20 → 40 → 60 s on failure and resets on success. A read counts only when
     its projection names THIS key and order; a readable projection with no `round`
-    is released. The `intent=` form is forwarded untoasted by `ErrorInterceptor`,
-    so a failed background read shows nothing. No withdrawal is offered (Step 3).
+    is released. The read carries `SILENT_FAILURE`, so no failure of it toasts:
+    the `intent=` carve-out alone was not enough, because the interceptor's 429
+    branch runs first (Codex P2 on #801). No withdrawal is offered (Step 3).
   - **THE BANNER** reads the shared signal itself, so neither host template changed:
     held reads "Order waiting" / "This table has an order waiting for staff to
     confirm it. Please ask a member of staff if you need help."

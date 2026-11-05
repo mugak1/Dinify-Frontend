@@ -384,6 +384,23 @@ describe('OrderCompleteComponent — Step 2 round state', () => {
       leave();
     }));
 
+    it('a rate-limited read (429) raises no toast and backs off (Codex P2 on #801)', fakeAsync(() => {
+      // The interceptor's 429 branch runs BEFORE its `intent=` carve-out, so
+      // without SILENT_FAILURE an unattended held screen would tell the diner
+      // "too many attempts" on every retry of a read they never asked for.
+      create({ ...FULL, round: HELD, intentKey: KEY });
+      tick(10_000);
+      expectRead().flush({ message: 'slow down' }, { status: 429, statusText: 'Too Many Requests' });
+      tick(20_000);
+      expectRead().flush({ message: 'slow down' }, { status: 429, statusText: 'Too Many Requests' });
+      expect(toast.warning).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+      tick(39_999);
+      expect(pending().length).toBe(0);   // still backing off: 40 s after two failures
+      tick(1);
+      expectRead().flush(orderRead(RELEASED));
+    }));
+
     it('a read that never answers counts as a failure after 10 s', fakeAsync(() => {
       create({ ...FULL, round: HELD, intentKey: KEY });
       tick(10_000);

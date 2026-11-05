@@ -1,4 +1,5 @@
 import { DOCUMENT } from '@angular/common';
+import { HttpContext } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, computed, effect, inject, OnDestroy,
   OnInit, signal,
@@ -9,6 +10,7 @@ import { Subscription, timeout } from 'rxjs';
 import { ApiService } from 'src/app/_services/api.service';
 import { Socials } from 'src/app/_models/app.models';
 import { formatOrderNumber } from 'src/app/kitchen/services/kitchen-logic';
+import { SILENT_FAILURE } from 'src/app/_helpers/error.interceptor';
 import { REVIEW_TAG_CHIPS, ReviewTagChip } from 'src/app/_shared/reviews/review-tags';
 import {
   DinerRound, DinerRoundState, readCorrelation, readDinerRound,
@@ -297,8 +299,13 @@ export class OrderCompleteComponent implements OnInit, OnDestroy {
     if (!this.polling || this.pollSub || this.document.hidden || !this.intentKey) {
       return;
     }
+    // SILENT: nobody asked for this read, so no failure of it may toast. The
+    // interceptor's `intent=` carve-out already keeps most failures quiet, but
+    // its 429 branch runs first and would warn the diner on every retry of an
+    // unattended screen (Codex P2 on #801). The backoff below handles it.
     this.pollSub = (this.api.get<unknown>(
       null, 'orders/journey/order-details/', { intent: this.intentKey },
+      undefined, new HttpContext().set(SILENT_FAILURE, true),
     )).pipe(timeout(OrderCompleteComponent.READ_TIMEOUT_MS)).subscribe({
       next: (response) => {
         this.pollSub = null;
