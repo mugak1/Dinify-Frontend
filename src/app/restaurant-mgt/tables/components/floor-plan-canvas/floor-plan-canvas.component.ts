@@ -2,13 +2,13 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { FloorRound, FloorTable } from '../../models/floor.models';
 import {
   CHIP_CLASSES,
-  TABLE_STATUS_LABEL,
   TABLE_TONE_CLASSES,
   FULFILMENT_LABEL,
   ageLabel,
   minutesSince,
   roundChipTone,
   roundStateLabel,
+  tableStatusLabel,
   tableTone,
 } from '../../utils/floor-presentation';
 
@@ -41,7 +41,8 @@ export class FloorPlanCanvasComponent {
   @Input() serverNowMs = 0;
   @Output() tableSelect = new EventEmitter<string>();
 
-  readonly statusLabel = TABLE_STATUS_LABEL;
+  /** "Status unknown" for a stored value outside the five (decision 2). */
+  readonly statusLabel = tableStatusLabel;
   readonly fulfilmentLabel = FULFILMENT_LABEL;
   readonly roundsOnCard = ROUNDS_ON_CARD;
 
@@ -77,7 +78,7 @@ export class FloorPlanCanvasComponent {
 
   /** One sentence a screen reader hears for the whole card. */
   ariaLabel(t: FloorTable): string {
-    const parts = [`${t.displayName}`, this.statusLabel[t.status]];
+    const parts = [`${t.displayName}`, this.statusLabel(t.status)];
     const held = t.rounds.filter(r => r.state === 'held');
     if (held.length) parts.push(roundStateLabel({ state: 'held', stale: held.some(r => r.stale) }));
     const released = t.rounds.length - held.length;

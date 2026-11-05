@@ -23,8 +23,8 @@ export const FLOOR_DEV_MODE = new InjectionToken<boolean>('FLOOR_DEV_MODE', {
  *
  * A live restaurant must never see mock tables or mock orders to confirm — that is
  * worse than no screen. So while the floor runs on mock data the view exists only in
- * a development build. FE-C wires the real endpoints and flips
- * `FloorService.USE_MOCK_DATA`, which is what opens it in production.
+ * a development build. FE-C wired the real endpoints and turned
+ * `FloorService.USE_MOCK_DATA` off, which is what opened it in production.
  */
 export function floorViewAvailable(devMode: boolean, useMockData: boolean): boolean {
   return devMode || !useMockData;

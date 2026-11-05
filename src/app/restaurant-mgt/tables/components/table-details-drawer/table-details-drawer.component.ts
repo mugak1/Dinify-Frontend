@@ -18,13 +18,13 @@ import {
   FULFILMENT_LABEL,
   PAYMENT_UNKNOWN_LABEL,
   STATUS_ACTIONS,
-  TABLE_STATUS_LABEL,
   ageLabel,
   clockLabel,
   minutesSince,
   moneyLabel,
   roundChipTone,
   roundStateLabel,
+  tableStatusLabel,
 } from '../../utils/floor-presentation';
 
 export type DetailState = 'idle' | 'loading' | 'ready' | 'error';
@@ -80,7 +80,8 @@ export class TableDetailsDrawerComponent {
   @Output() retryDetail = new EventEmitter<void>();
 
   readonly statusActions = STATUS_ACTIONS;
-  readonly statusLabel = TABLE_STATUS_LABEL;
+  /** "Status unknown" for a stored value outside the five (decision 2). */
+  readonly statusLabel = tableStatusLabel;
   readonly fulfilmentLabel = FULFILMENT_LABEL;
   readonly paymentLabel = PAYMENT_UNKNOWN_LABEL;
   readonly declineTitle = DECLINE_CONFIRM_TITLE;

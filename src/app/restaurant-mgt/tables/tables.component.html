@@ -1,8 +1,9 @@
 <div class="space-y-4 sm:space-y-6">
   <!-- Page Header -->
   <app-page-header title="Tables">
-    <!-- The Floor/Setup toggle exists only where the floor view may be shown: a
-         development build while the floor runs on mock data (see TablesComponent). -->
+    <!-- The Floor/Setup toggle exists only where the floor view may be shown: every
+         build while the floor reads the real endpoints (FE-C), and a development build
+         alone if the mock flag were ever on (see TablesComponent). -->
     @if (floorViewAvailable) {
       <div actions>
         <app-dn-segmented

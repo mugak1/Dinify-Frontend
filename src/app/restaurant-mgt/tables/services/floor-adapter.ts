@@ -7,10 +7,29 @@
  * an unreadable floor is a different fact from an empty one, so the view says so
  * instead of showing a blank floor. It computes nothing the server owns: `stale`,
  * `needs_staff`, `occupied` and `waiting_for_staff` are passed through as sent.
+ *
+ * ONE EXCEPTION, AND IT IS NARROW (FE-C, decision 2). A table `status` the view does
+ * not know is NOT a malformed read: BE-D reports the stored value as stored (D-17), a
+ * value outside the five may exist from before PR-5, and refusing the whole floor for
+ * one such row would blank the floor for the whole restaurant. The value must still be
+ * a STRING; it is kept verbatim (never guessed into one of the five, the D07 rule) and
+ * the view reads it as "Status unknown". Every other malformed field still refuses.
+ *
+ * What BE-D changed from the v1 text, as read here (`docs/FLOOR_CONTRACT.md` in the
+ * backend): a released round may carry `released_at: null` (D-4, an order with no
+ * placement); `accepted_at_provenance` is read when present (A-3); a command's round
+ * may be in any of six states (A-4); every 409 carries `data.round` and a
+ * `cannot_be_made` 409 the `cannot_be_made` object (A-5); `restaurant.payment_timing`
+ * is `pay_after`, `pay_first` or `null`, never `not_chosen` (D-10); times carry
+ * milliseconds and `+03:00` (D-15).
  */
 import { toMinorUnits } from '../../../_shared/utils/decimal-money';
 import {
+  AcceptedAtProvenance,
+  COMMAND_ROUND_STATES,
   CannotBeMade,
+  CommandRound,
+  CommandRoundState,
   FLOOR_CONTRACT,
   FloorRound,
   FloorRoundDetail,
@@ -18,7 +37,6 @@ import {
   FloorSnapshot,
   FloorTable,
   FloorTableDetail,
-  FloorTableStatus,
   FloorVisit,
   FulfilmentStatus,
   PaymentTiming,
@@ -31,17 +49,12 @@ import {
 
 export type Read<T> = { kind: 'ok'; value: T } | { kind: 'invalid'; why: string };
 
-const TABLE_STATUSES: readonly FloorTableStatus[] = [
-  'available',
-  'seated',
-  'bill_requested',
-  'dirty',
-  'out_of_service',
-];
 const ROUND_STATES: readonly RoundState[] = ['held', 'released'];
 const ROUND_SOURCES: readonly RoundSource[] = ['diner', 'staff'];
 const FULFILMENT: readonly FulfilmentStatus[] = ['new', 'preparing', 'ready', 'served'];
-const PAYMENT_TIMINGS: readonly PaymentTiming[] = ['pay_after', 'pay_first', 'not_chosen'];
+/** D-10: `not_chosen` is a visit's word, never the restaurant's. */
+const PAYMENT_TIMINGS: readonly PaymentTiming[] = ['pay_after', 'pay_first'];
+const PROVENANCES: readonly AcceptedAtProvenance[] = ['acceptance', 'order_created'];
 
 /** ISO 8601 WITH an offset. A naive timestamp would be read against the device's zone. */
 const ISO_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -107,28 +120,51 @@ function envelopeData(raw: unknown): unknown {
   return env['data'];
 }
 
-function readRound(raw: unknown, i: number): FloorRound {
-  const r = obj(raw, `rounds[${i}]`);
-  const state = oneOf(r['state'], ROUND_STATES, `rounds[${i}].state`);
-  const heldSince = nullableInstant(r['held_since'], `rounds[${i}].held_since`);
-  const releasedAt = nullableInstant(r['released_at'], `rounds[${i}].released_at`);
-  // The contract ties each timestamp to one state; a round carrying the other one is
-  // not something this view can place.
-  if (state === 'held' && (heldSince === null || releasedAt !== null)) fail(`rounds[${i}].held`);
-  if (state === 'released' && (releasedAt === null || heldSince !== null)) fail(`rounds[${i}].released`);
+/**
+ * The fields every round object carries, with the state read against `states`. The
+ * floor lists LIVE rounds only (`held` / `released`); a command answers about a round
+ * that may have left the floor (A-4), so it passes the wider list.
+ */
+function readRoundAs<S extends string>(
+  raw: unknown,
+  at: string,
+  states: readonly S[],
+): Omit<FloorRound, 'state'> & { state: S } {
+  const r = obj(raw, at);
+  const state = oneOf(r['state'], states, `${at}.state`);
+  const heldSince = nullableInstant(r['held_since'], `${at}.held_since`);
+  const releasedAt = nullableInstant(r['released_at'], `${at}.released_at`);
+  // `held_since` is set only for a held round (D-3), and a held round has not been
+  // released. `released_at` is NOT required of a released round: a released round with
+  // no placement (an order from before Step 1, or accepted with the writer off) has
+  // `released_at: null`, because its release was never recorded (D-4).
+  if (state === 'held' && (heldSince === null || releasedAt !== null)) fail(`${at}.held`);
+  if (state !== 'held' && heldSince !== null) fail(`${at}.held_since.state`);
+  const provenance = r['accepted_at_provenance'];
   return {
-    orderId: str(r['order_id'], `rounds[${i}].order_id`),
-    roundNumber: count(r['round_number'], `rounds[${i}].round_number`),
+    orderId: str(r['order_id'], `${at}.order_id`),
+    roundNumber: count(r['round_number'], `${at}.round_number`),
     state,
-    source: oneOf(r['source'], ROUND_SOURCES, `rounds[${i}].source`),
-    acceptedAt: instant(r['accepted_at'], `rounds[${i}].accepted_at`),
+    source: oneOf(r['source'], ROUND_SOURCES, `${at}.source`),
+    acceptedAt: instant(r['accepted_at'], `${at}.accepted_at`),
+    // Additive (A-3): absent from an older backend, and then unknown rather than invented.
+    acceptedAtProvenance:
+      provenance === undefined ? null : oneOf(provenance, PROVENANCES, `${at}.accepted_at_provenance`),
     heldSince,
     releasedAt,
-    stale: bool(r['stale'], `rounds[${i}].stale`),
-    fulfilmentStatus: oneOf(r['fulfilment_status'], FULFILMENT, `rounds[${i}].fulfilment_status`),
-    itemCount: count(r['item_count'], `rounds[${i}].item_count`),
-    value: money(r['value'], `rounds[${i}].value`),
+    stale: bool(r['stale'], `${at}.stale`),
+    fulfilmentStatus: oneOf(r['fulfilment_status'], FULFILMENT, `${at}.fulfilment_status`),
+    itemCount: count(r['item_count'], `${at}.item_count`),
+    value: money(r['value'], `${at}.value`),
   };
+}
+
+function readRound(raw: unknown, i: number): FloorRound {
+  return readRoundAs(raw, `rounds[${i}]`, ROUND_STATES);
+}
+
+function readCommandRound(raw: unknown, at: string): CommandRound {
+  return readRoundAs<CommandRoundState>(raw, at, COMMAND_ROUND_STATES);
 }
 
 function readItem(raw: unknown, i: number): FloorRoundItem {
@@ -152,13 +188,19 @@ function readItem(raw: unknown, i: number): FloorRoundItem {
   };
 }
 
-function readCannotBeMade(raw: unknown, i: number): CannotBeMade | null {
+function readCannotBeMadeAt(raw: unknown, at: string): CannotBeMade | null {
   if (raw === null) return null;
-  const c = obj(raw, `rounds[${i}].cannot_be_made`);
+  const c = obj(raw, at);
   return {
-    reason: str(c['reason'], `rounds[${i}].cannot_be_made.reason`),
-    itemName: str(c['item_name'], `rounds[${i}].cannot_be_made.item_name`),
+    // Kept as a string: the view names the item, and a new classification (D-13) must
+    // not refuse a read.
+    reason: str(c['reason'], `${at}.reason`),
+    itemName: str(c['item_name'], `${at}.item_name`),
   };
+}
+
+function readCannotBeMade(raw: unknown, i: number): CannotBeMade | null {
+  return readCannotBeMadeAt(raw, `rounds[${i}].cannot_be_made`);
 }
 
 function readRoundDetail(raw: unknown, i: number): FloorRoundDetail {
@@ -193,7 +235,9 @@ function readTableShell(raw: unknown, i: number): Omit<FloorTable, 'rounds'> {
     number: count(t['number'], `tables[${i}].number`),
     displayName: str(t['display_name'], `tables[${i}].display_name`),
     areaId: areaId as string | null,
-    status: oneOf(t['status'], TABLE_STATUSES, `tables[${i}].status`),
+    // THE ONE TOLERANCE (decision 2): any STRING is kept verbatim, known or not. A
+    // non-string is still malformed and refuses the read.
+    status: typeof t['status'] === 'string' ? t['status'] : fail(`tables[${i}].status`),
     occupied: bool(t['occupied'], `tables[${i}].occupied`),
     needsStaff: bool(t['needs_staff'], `tables[${i}].needs_staff`),
     visit: readVisit(t['visit'] === undefined ? fail(`tables[${i}].visit`) : t['visit']),
@@ -249,20 +293,15 @@ export function readFloorTable(raw: unknown, expectedTableId: string): Read<Floo
 
 /**
  * Read the 200 answer to confirm or decline. It must name the round that was
- * commanded: a payload about a different order is refused, never applied.
+ * commanded: a payload about a different order is refused, never applied. The whole
+ * round is read (A-4 states included), because the view takes it as the answer.
  */
 export function readCommandOk(raw: unknown, orderId: string): Read<RoundCommandAnswer> {
   return attempt(() => {
     const d = obj(envelopeData(raw), 'data');
-    const round = obj(d['round'], 'round');
-    const answered = str(round['order_id'], 'round.order_id');
-    if (answered !== orderId) fail('round.order_id');
-    return {
-      kind: 'ok' as const,
-      changed: bool(d['changed'], 'changed'),
-      orderId: answered,
-      state: str(round['state'], 'round.state'),
-    };
+    const round = readCommandRound(d['round'], 'round');
+    if (round.orderId !== orderId) fail('round.order_id');
+    return { kind: 'ok' as const, changed: bool(d['changed'], 'changed'), round };
   });
 }
 
@@ -270,18 +309,54 @@ export function readCommandOk(raw: unknown, orderId: string): Read<RoundCommandA
  * Read a 409 body. An unrecognised reason is kept as `unknown` (the round still
  * changed under us; the view says so and refreshes) rather than mistaken for one of
  * the eight it knows.
+ *
+ * `data.round` (A-5) is read through the same round reader as every other round and
+ * must name the commanded order. A body whose round cannot be read, or names another
+ * order, still is a refusal — the reason stands — but carries no round, so the view
+ * replaces nothing and waits for the re-read instead of guessing.
  */
-export function readRefusal(body: unknown): Extract<RoundCommandAnswer, { kind: 'refused' }> {
+export function readRefusal(
+  body: unknown,
+  orderId: string,
+): Extract<RoundCommandAnswer, { kind: 'refused' }> {
   const b = body !== null && typeof body === 'object' ? (body as Record<string, unknown>) : {};
   const reason = ROUND_REFUSAL_REASONS.includes(b['reason'] as RoundRefusalReason)
     ? (b['reason'] as RoundRefusalReason)
     : 'unknown';
   const itemName = typeof b['item_name'] === 'string' && b['item_name'].trim() ? b['item_name'] : null;
+  const state = COMMAND_ROUND_STATES.includes(b['state'] as CommandRoundState)
+    ? (b['state'] as CommandRoundState)
+    : null;
+  const roundRead = attempt(() => {
+    const data = obj(b['data'], 'data');
+    const round = readCommandRound(data['round'], 'data.round');
+    if (round.orderId !== orderId) fail('data.round.order_id');
+    return round;
+  });
+  const cbmRead = attempt(() =>
+    b['cannot_be_made'] === undefined ? null : readCannotBeMadeAt(b['cannot_be_made'], 'cannot_be_made'),
+  );
   return {
     kind: 'refused',
     reason,
     message: typeof b['message'] === 'string' ? b['message'] : '',
-    state: typeof b['state'] === 'string' ? b['state'] : null,
-    itemName,
+    state,
+    itemName: itemName ?? (cbmRead.kind === 'ok' ? cbmRead.value?.itemName ?? null : null),
+    round: roundRead.kind === 'ok' ? roundRead.value : null,
+    cannotBeMade: cbmRead.kind === 'ok' ? cbmRead.value : null,
   };
+}
+
+/**
+ * Read the 200 answer to `table-actions/update-status/`: `data` is the table as the
+ * server now has it. It must name the table that was commanded and carry the status
+ * that was asked for; anything else is not an answer about this action.
+ */
+export function readStatusOk(raw: unknown, tableId: string, status: string): Read<true> {
+  return attempt(() => {
+    const d = obj(envelopeData(raw), 'data');
+    if (str(d['id'], 'data.id') !== tableId) fail('data.id');
+    if (d['status'] !== status) fail('data.status');
+    return true as const;
+  });
 }

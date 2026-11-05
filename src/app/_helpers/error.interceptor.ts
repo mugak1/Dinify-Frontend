@@ -58,6 +58,23 @@ export function isKitchenOrderCommand(request: HttpRequest<unknown>): boolean {
         .test(request.url);
 }
 
+/**
+ * Is this one of the two floor ROUND COMMAND routes (Step 2, BE-D)?
+ *
+ * `POST floor/rounds/<order>/confirm/` and `.../decline/`. They answer a crossed or
+ * blocked command with a 409 carrying a machine `reason` and the round as it now is
+ * (`data.round`), and an order the user can no longer see with a 404 — and the floor
+ * view renders every one of those itself. Mirrors `isKitchenOrderCommand` exactly:
+ * matched on the path SHAPE and the method, so a URL that merely contains the words
+ * (a query parameter, another host's path, a GET) cannot borrow the behaviour. The
+ * floor READS and the table status verb are deliberately NOT included.
+ */
+export function isFloorRoundCommand(request: HttpRequest<unknown>): boolean {
+    if (request.method !== 'POST') return false;
+    return /\/api\/[^/]+\/floor\/rounds\/[^/?]+\/(confirm|decline)\/?($|\?)/
+        .test(request.url);
+}
+
 /** The session really ended: its credential was definitively refused. */
 export const SESSION_EXPIRED = 'Session expired';
 
@@ -185,6 +202,20 @@ export class ErrorInterceptor implements HttpInterceptor {
         // kitchen READS and the stock toggle are deliberately excluded
         // and keep the string + toast behaviour below.
         if (isKitchenOrderCommand(request)) {
+            return throwError(() => err);
+        }
+
+        // Floor round command (Step 2, FE-C). The SAME carve-out as the
+        // kitchen's, for the same reason and at the same place: Confirm and
+        // Decline answer a refusal with { status, message, reason, state,
+        // data: { round } } (409) and an order the user can no longer see
+        // with one 404, and the floor view must read the STATUS, the
+        // `reason` and `data.round` to say which. Flattened to a string they
+        // are indistinguishable from a lost answer, and the global toast
+        // would say it a second time beside the drawer's own message. The
+        // floor READS and the table status verb are not included and keep
+        // the behaviour below.
+        if (isFloorRoundCommand(request)) {
             return throwError(() => err);
         }
 
