@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Inject, OnDestroy, OnInit } from '@angular/core';
-import { Subject, Subscription, takeUntil } from 'rxjs';
+import { Subject, Subscription, finalize, takeUntil } from 'rxjs';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
 import { FloorService } from '../../services/floor.service';
@@ -128,6 +128,8 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private floorSub: Subscription | null = null;
   private detailSub: Subscription | null = null;
+  /** The table whose drawer read is in flight, if any. */
+  private detailInFlightFor: string | null = null;
   private pollHandle: ReturnType<typeof setTimeout> | null = null;
   /** Consecutive failed floor reads; drives the back-off. */
   private failures = 0;
@@ -219,7 +221,7 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
           this.loadState = 'ready';
           this.refreshFailed = false;
           this.failures = 0;
-          if (reloadDetail && this.selectedTableId) this.loadDetail();
+          if (reloadDetail && this.selectedTableId) this.loadDetail({ force: false });
         }
         // `superseded` is an answer older than a command answer: the view keeps what
         // it has, and it is not a failure.
@@ -238,15 +240,30 @@ export class TablesServiceViewComponent implements OnInit, OnDestroy {
     else this.loadState = 'error';
   }
 
-  private loadDetail(): void {
+  /**
+   * Read the open table for the drawer.
+   *
+   * `force: false` is the POLL's re-read, and it leaves a read of the same table that is
+   * still in flight alone. Otherwise a table read slower than the 5 s poll (but inside
+   * its 8 s timeout) would be cancelled by every poll and never land, leaving the drawer
+   * on "loading items…" with Confirm unavailable. Opening the drawer, a command and
+   * "Try again" force a fresh read, replacing any older one in flight.
+   */
+  private loadDetail({ force }: { force: boolean } = { force: true }): void {
     const tableId = this.selectedTableId;
     if (!tableId) return;
+    if (!force && this.detailInFlightFor === tableId) return;
     if (this.detail?.id !== tableId) {
       this.detail = null;
       this.detailState = 'loading';
     }
     this.detailSub?.unsubscribe();
-    this.detailSub = this.floorService.loadTable(this.restaurantId, tableId).subscribe({
+    this.detailInFlightFor = tableId;
+    this.detailSub = this.floorService.loadTable(this.restaurantId, tableId).pipe(
+      finalize(() => {
+        if (this.detailInFlightFor === tableId) this.detailInFlightFor = null;
+      }),
+    ).subscribe({
       next: read => {
         if (read.kind === 'superseded' || this.selectedTableId !== tableId) return;
         if (read.kind === 'invalid') {

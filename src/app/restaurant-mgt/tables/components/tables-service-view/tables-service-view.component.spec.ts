@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed, discardPeriodicTasks, fakeAsync, flush, tick } from '@angular/core/testing';
-import { NEVER, Subject, map, throwError } from 'rxjs';
+import { NEVER, Subject, map, switchMap, throwError, timer } from 'rxjs';
 import { TablesServiceViewComponent } from './tables-service-view.component';
 import { ToastService } from '../../../../_shared/ui/toast/toast.service';
 import { AuthenticationService } from '../../../../_services/authentication.service';
@@ -596,6 +596,50 @@ describe('TablesServiceViewComponent — floor view (Step 2)', () => {
       tick(10 * 60_000);
       expect(reads).toHaveBeenCalledTimes(1);
       flush();
+    }));
+  });
+
+  describe('A SLOW DRAWER READ IS NOT CANCELLED BY THE POLL (Codex P2 on #802)', () => {
+    beforeEach(() => {
+      TablesServiceViewComponent.POLL_MS = 5_000;
+      TablesServiceViewComponent.BACKOFF_MS = [10_000, 20_000];
+    });
+
+    it('a table read slower than the poll (6 s, inside the 8 s timeout) still lands, and Confirm is offered', fakeAsync(() => {
+      const realTable = backend.getTable.bind(backend);
+      const tableReads = spyOn(backend, 'getTable').and.callFake((r, id) =>
+        timer(6_000).pipe(switchMap(() => realTable(r, id))),
+      );
+      fixture = TestBed.createComponent(TablesServiceViewComponent);
+      fixture.detectChanges();
+      tick(FloorMockBackend.READ_DELAY_MS);
+      fixture.detectChanges();
+      card(IDS.freshHeldTable).click();
+      fixture.detectChanges();
+      tick(20_000);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.detailState).toBe('ready');
+      expect(btn(drawerRound(IDS.freshHeldRound)!, 'confirm-round')).not.toBeNull();
+      expect(drawerRound(IDS.freshHeldRound)!.querySelectorAll('[data-testid="round-item"]').length).toBe(2);
+      // Polls in between left the read in flight alone: no more reads than 20 s of
+      // back-to-back 6 s reads allows, and certainly not one per 5 s poll that cancels.
+      expect(tableReads.calls.count()).toBeLessThanOrEqual(4);
+      finish();
+    }));
+
+    it('CONTROL: a command still forces a fresh drawer read while a poll read is in flight', fakeAsync(() => {
+      boot();
+      open(IDS.freshHeldTable);
+      const realTable = backend.getTable.bind(backend);
+      const tableReads = spyOn(backend, 'getTable').and.callFake((r, id) =>
+        timer(6_000).pipe(switchMap(() => realTable(r, id))),
+      );
+      tick(5_000); // the poll's floor read lands and starts a slow drawer read
+      expect(tableReads).toHaveBeenCalledTimes(1);
+      btn(drawerRound(IDS.freshHeldRound)!, 'confirm-round').click();
+      tick(FloorMockBackend.COMMAND_DELAY_MS);
+      expect(tableReads).toHaveBeenCalledTimes(2);
+      finish();
     }));
   });
 
