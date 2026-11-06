@@ -66,6 +66,26 @@
     </div>
   }
 
+  <!-- Step 2 (BE-G): rounds held for floor staff. Informational, so it is a status
+       tint (amber, like "reconnecting") with no action: the kitchen cannot confirm.
+       In the header from 1280px only: the wrapper's zero flex basis means it takes the
+       header's FREE space and never squeezes the controls beside it, and below 1280px
+       there is none (at 1024 the controls already fill the bar). Narrower boards show
+       the same chip at the top of the board area instead (see below). -->
+  @if (waitingChip; as label) {
+    <div class="hidden xl:flex flex-[999_1_0%] min-w-0">
+      <div
+        data-testid="kitchen-waiting-chip"
+        data-placement="header"
+        role="status"
+        [attr.title]="label"
+        class="inline-flex items-center gap-2 rounded-xl px-3 py-1 min-h-9 max-w-full min-w-0 text-sm leading-tight font-semibold border bg-amber-500/15 text-amber-200 border-amber-500/40">
+        <svg class="h-4 w-4 shrink-0" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span class="min-w-0 line-clamp-2">{{ label }}</span>
+      </div>
+    </div>
+  }
+
   <div class="flex-1"></div>
 
   <!-- Pager position (landscape only; the scroll list has no pages) -->
@@ -157,6 +177,21 @@
       class="absolute top-0 inset-x-0 z-20 pointer-events-none flex items-center justify-center gap-2 px-4 py-1.5 bg-amber-500 text-amber-950 font-display text-sm font-semibold tracking-tight shadow">
       <span class="h-2 w-2 rounded-full bg-amber-900 kitchen-conn-pulse" aria-hidden="true"></span>
       <span>Reconnecting…</span>
+    </div>
+  }
+
+  <!-- Step 2 (BE-G): the waiting chip below 1280px, where the header has no room.
+  An overlay pill in the same pattern as the reconnecting strip: pointer-events-none,
+  so it never takes a tap from a card, and under the connection banners (z-10 < z-20),
+  which matter more. Hidden from 1280px, where the header carries it. -->
+  @if (waitingChip; as label) {
+    <div
+      data-testid="kitchen-waiting-chip"
+      data-placement="board"
+      role="status"
+      class="xl:hidden absolute top-1 left-1/2 -translate-x-1/2 z-10 pointer-events-none inline-flex items-center gap-2 rounded-full px-3 h-8 whitespace-nowrap text-sm font-semibold border shadow bg-amber-950 text-amber-200 border-amber-500/50">
+      <svg class="h-4 w-4 shrink-0" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>{{ label }}</span>
     </div>
   }
 

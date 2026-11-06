@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, Inject, Optional } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { AuthenticationService } from '../../_services/authentication.service';
 import { LocalStorageService } from '../../_services/storage/local-storage.service';
 import { PersistedValue } from '../../_services/storage/persisted-state';
@@ -52,6 +53,10 @@ export class TablesComponent {
     // Optional so the unit specs can construct the component directly; absent means a
     // production build, which is the safe answer.
     @Optional() @Inject(FLOOR_DEV_MODE) devMode: boolean | null = null,
+    // Optional for the same reason. Read ONCE, here: `?view=service` (the bell's
+    // `round_waiting` link) opens the floor's service view, as if staff had picked
+    // it. Any other value, or none, changes nothing, and the gate still applies.
+    @Optional() route: ActivatedRoute | null = null,
   ) {
     this.floorViewAvailable = floorViewAvailable(devMode === true, FloorService.USE_MOCK_DATA);
     this._activeView = new PersistedValue<TablesView>('setup', {
@@ -59,6 +64,7 @@ export class TablesComponent {
       getKey: () => `tables.activeView:${this.auth.currentRestaurantRole?.restaurant_id ?? 'global'}`,
       validate: (v): v is TablesView => v === 'setup' || (v === 'service' && this.floorViewAvailable),
     });
+    if (route?.snapshot?.queryParamMap.get('view') === 'service') this.setView('service');
   }
 
   setView(view: string): void {

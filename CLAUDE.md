@@ -2178,6 +2178,25 @@ so keep it current when conventions change.
   active sort (`sortTickets`). Do not read `created_at` directly for any of those.
   Against a server without the field nothing changes. Pinned by
   `kitchen/board/kitchen-age-from-release.spec.ts`
+  **THE HEADER SAYS WHEN ROUNDS ARE WAITING FOR FLOOR STAFF (Step 2 FE-E).** Backend
+  BE-G adds an OPTIONAL `waiting_for_staff` to the ACTIVE feed's envelope, a sibling
+  of `data`; `kitchen_protocol` is unchanged. `readWaitingForStaff` (`kitchen-wire.ts`)
+  keeps it only as a whole number of 0 or more; absent, `null`, a string, a fraction
+  or a negative all mean "not given" (D07), and a bad value never refuses the feed.
+  The service's `waitingForStaff` signal follows the newest ACTIVE read only (an
+  older answer landing late cannot replace it; a newest answer that omits it clears
+  it; a scope change resets it). At ≥ 1 an amber, `role="status"` chip says "1 order
+  waiting for floor staff" / "N orders waiting for floor staff", with NO action,
+  because the kitchen cannot confirm a round. Nothing shows at 0 or when absent, so
+  against today's backend the board is unchanged. **TWO PLACEMENTS, ONE GETTER
+  (`waitingChip`)**: from 1280px (`xl`) it is in the header, in a zero-basis wrapper
+  that takes only FREE space (so it never squeezes or wraps the controls); below
+  1280px the header has no room (measured: at 1024 a 104px chip overflowed it by
+  54px), so it is a `pointer-events-none` pill at the top of the board area, under
+  the connection banners — the reconnecting strip's pattern. Do not move it back
+  into the header below `xl` without re-measuring at 1024.
+  Pinned by `kitchen/board/kitchen-waiting-chip.spec.ts` (real `ApiService` and
+  `HttpClient`)
   **THE COMMAND CONTRACT CHANGED WITH D05, AND THE CLIENT NO LONGER GUESSES AN
   OUTCOME.** Every kitchen mutation now names an explicit ACTION (`advance` /
   `serve` / `correct` / `recall`, or the priority/cancel route) and a REQUIRED
@@ -3324,6 +3343,25 @@ so keep it current when conventions change.
   and `payload` by `rest-notifications/inbox-notification.ts`; a kind this build
   does not know still renders, as "New notification". The unread dot keeps its
   colour-roles allowlist entry.
+
+  **`round_waiting` (Step 2 FE-E, paired with backend BE-G).** Module `tables`, ONE
+  row per restaurant that re-alerts when a new round starts waiting; payload exactly
+  `{waiting, oldest_held_since, latest_table}`, no diner data. `describeRoundWaiting`
+  words it from `waiting` alone: ≥ 1 → "1 order waiting for staff" / "N orders
+  waiting for staff", "Confirm it (them) on the floor view." plus " Latest:
+  <table>." when `latest_table` is a non-empty string, linking to
+  `FLOOR_SERVICE_LINK`; 0 → "No orders waiting" / "Every waiting order has been
+  handled.", no link; a `waiting` that is not a whole number of 0 or more is
+  MALFORMED → "Orders waiting for staff" / "Open the floor view.", WITH the link,
+  never a guessed count (and never the 0 words). Icon `waiting` (inline SVG
+  hourglass). **THE LINK IS `/dining-tables?view=service`**: the Tables page toggles
+  Setup/Service inside one route, so `TablesComponent` reads `view=service` ONCE in
+  its constructor (an `@Optional()` `ActivatedRoute`) and calls `setView('service')`,
+  which persists like the toggle and still obeys the floor-view production gate; any
+  other value changes nothing. No route was added or moved. Against a backend
+  without BE-G nothing here is reached. Pinned by `round-waiting.spec.ts` and
+  `tables/tables-view-link.spec.ts` (the real router, driven by the bell's own link
+  constant)
 
   Pinned by `notification-inbox.service.spec.ts` and the page spec (both through the
   real `ApiService` and `ErrorInterceptor`), `notification-bell.component.spec.ts`

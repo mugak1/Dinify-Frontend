@@ -183,6 +183,14 @@ export class KitchenOrderService {
   readonly canCommand = computed(
     () => this.serverProtocol() >= REQUIRED_KITCHEN_PROTOCOL);
 
+  /**
+   * Step 2 (BE-G): rounds held for floor staff, from the newest ACTIVE feed that
+   * was applied. `undefined` means the server did not say (an older backend, or a
+   * value `readWaitingForStaff` could not read). Informational only: the kitchen
+   * cannot confirm a round, so nothing on the board acts on it.
+   */
+  readonly waitingForStaff = signal<number | undefined>(undefined);
+
   /** True when a read returned a shape this client cannot parse. The board keeps
    *  its last valid content and says so, rather than blanking. */
   readonly feedUnreadable = signal(false);
@@ -395,6 +403,7 @@ export class KitchenOrderService {
       this._operations.set({});
       this.feedUnreadable.set(false);
       this.serverProtocol.set(0);
+      this.waitingForStaff.set(undefined);
       this.knownById.clear();
       this.tombstones.clear();
       // A new context owns no reads either, so nothing is retired in it.
@@ -728,6 +737,11 @@ export class KitchenOrderService {
     // is a per-store question.
     const isNewestRead = seq >= this.feedSeq[which];
     if (isNewestRead) this.feedSeq[which] = seq;
+
+    // The waiting count rides the ACTIVE feed only, and follows that feed's own
+    // ordering: an older active answer landing late must not replace a newer
+    // count. A newest answer that says nothing clears it — silence is "not given".
+    if (which === 'active' && isNewestRead) this.waitingForStaff.set(verdict.waitingForStaff);
 
     // THE DECLARATION IS ORDERED GLOBALLY, across both feeds, because it is a
     // claim about the SERVER rather than about either set. A delayed older

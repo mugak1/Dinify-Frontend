@@ -42,7 +42,7 @@
           <svg class="h-6 w-6" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         </div>
         <p class="text-base font-semibold text-foreground mb-1">You're all caught up</p>
-        <p class="text-sm text-muted-foreground">Low reviews, dishes sold out from the kitchen and changes to ordering will show up here.</p>
+        <p class="text-sm text-muted-foreground">Low reviews, orders waiting for staff, dishes sold out from the kitchen and changes to ordering will show up here.</p>
       </div>
     </app-dn-card>
   }
@@ -72,6 +72,9 @@
                   }
                   @case ('resumed') {
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5 3.5-5 3.5z"/></svg>
+                  }
+                  @case ('waiting') {
+                    <svg class="h-5 w-5" data-testid="icon-waiting" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12M6 22h12"/><path d="M7 2v4l5 6-5 6v4M17 2v4l-5 6 5 6v4"/></svg>
                   }
                   @default {
                     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>

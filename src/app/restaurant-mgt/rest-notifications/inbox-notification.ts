@@ -14,7 +14,7 @@ export interface InboxPage {
 export interface InboxRowView {
   title: string;
   detail: string;
-  icon: 'review' | 'sold-out' | 'paused' | 'resumed' | 'generic';
+  icon: 'review' | 'sold-out' | 'paused' | 'resumed' | 'waiting' | 'generic';
   /** Router target for a row that leads somewhere, else null. */
   link: { path: string; queryParams?: Record<string, string> } | null;
 }
@@ -64,6 +64,49 @@ function readRow(row: unknown): InboxNotification | null {
 export const REVIEW_ATTENTION_LINK = { path: '/reviews/feed', queryParams: { view: 'attention' } };
 
 /**
+ * The floor's service view (Step 2), where staff Confirm a held round. The Tables
+ * page reads `view=service` once, on load (`TablesComponent`).
+ */
+export const FLOOR_SERVICE_LINK = { path: '/dining-tables', queryParams: { view: 'service' } };
+
+/**
+ * `round_waiting` (Step 2, BE-G): ONE row per restaurant that re-alerts when a new
+ * round starts waiting. Its payload is `{waiting, oldest_held_since, latest_table}`
+ * and carries no diner data. `waiting` decides the words; a `waiting` that is not
+ * a whole number of 0 or more is a MALFORMED payload and gets neutral words with
+ * the link, never a guessed count. `latest_table` is shown only when it is a
+ * non-empty string; anything else simply leaves it out.
+ */
+function describeRoundWaiting(payload: Record<string, unknown>): InboxRowView {
+  const waiting = payload['waiting'];
+  if (typeof waiting !== 'number' || !Number.isInteger(waiting) || waiting < 0) {
+    return {
+      title: 'Orders waiting for staff',
+      detail: 'Open the floor view.',
+      icon: 'waiting',
+      link: FLOOR_SERVICE_LINK,
+    };
+  }
+  if (waiting === 0) {
+    return {
+      title: 'No orders waiting',
+      detail: 'Every waiting order has been handled.',
+      icon: 'waiting',
+      link: null,
+    };
+  }
+  const table = typeof payload['latest_table'] === 'string' ? (payload['latest_table'] as string).trim() : '';
+  const one = waiting === 1;
+  return {
+    title: one ? '1 order waiting for staff' : `${waiting} orders waiting for staff`,
+    detail: (one ? 'Confirm it on the floor view.' : 'Confirm them on the floor view.')
+      + (table ? ` Latest: ${table}.` : ''),
+    icon: 'waiting',
+    link: FLOOR_SERVICE_LINK,
+  };
+}
+
+/**
  * The words for one notification, built from its kind and payload. A kind this
  * build does not know still renders, neutrally, rather than disappearing.
  */
@@ -105,6 +148,8 @@ export function describeNotification(n: InboxNotification): InboxRowView {
         icon: 'resumed',
         link: null,
       };
+    case 'round_waiting':
+      return describeRoundWaiting(n.payload);
     default:
       return { title: 'New notification', detail: '', icon: 'generic', link: null };
   }
