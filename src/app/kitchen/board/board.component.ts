@@ -275,6 +275,17 @@ export class BoardComponent implements OnInit, OnDestroy {
    *  empty one. */
   get feedUnreadable(): boolean { return this.service.feedUnreadable(); }
 
+  /**
+   * Step 2 (BE-G): the header's "waiting for floor staff" chip, or null when it
+   * shows nothing. Nothing at 0 and nothing when the server did not say. The chip
+   * is information only: kitchen staff cannot confirm a held round.
+   */
+  get waitingChip(): string | null {
+    const n = this.service.waitingForStaff();
+    if (n === undefined || n < 1) return null;
+    return n === 1 ? '1 order waiting for floor staff' : `${n} orders waiting for floor staff`;
+  }
+
   // ── Cancel/void (board owns the confirm dialog; service does the call) ─
   onCardCancel(t: KitchenTicket): void { this.cancelTarget.set(t); }
   onCancelConfirm(reason: string): void {

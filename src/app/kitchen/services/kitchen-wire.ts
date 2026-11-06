@@ -236,8 +236,22 @@ export function readProtocol(res: unknown): number {
   return isValidRevision(declared) ? declared : 0;
 }
 
+/**
+ * Step 2 (BE-G): how many rounds at this restaurant are held for floor staff,
+ * published on the ACTIVE feed's envelope as a sibling of `data`. OPTIONAL: an
+ * older backend omits it. Absent, `null`, a string, a fraction, a negative or a
+ * non-finite value all answer `undefined`, which means "not given" — never a
+ * guess at 0 or anything else (the D07 rule). An unreadable count is not a reason
+ * to refuse the feed: it reaches no ticket and no command.
+ */
+export function readWaitingForStaff(res: unknown): number | undefined {
+  if (!res || typeof res !== 'object') return undefined;
+  const value = (res as Record<string, unknown>)['waiting_for_staff'];
+  return isValidRevision(value) ? value : undefined;
+}
+
 export type FeedVerdict =
-  | { kind: 'ok'; tickets: KitchenTicket[]; protocol: number }
+  | { kind: 'ok'; tickets: KitchenTicket[]; protocol: number; waitingForStaff?: number }
   | { kind: 'unreadable'; why: string };
 
 /**
@@ -274,7 +288,13 @@ export function readFeed(res: unknown): FeedVerdict {
   const ids = new Set(tickets.map(t => t.id));
   if (ids.size !== tickets.length) return { kind: 'unreadable', why: 'duplicate' };
 
-  return { kind: 'ok', tickets: tickets.map(withTicketProvenance), protocol };
+  const waitingForStaff = readWaitingForStaff(res);
+  return {
+    kind: 'ok',
+    tickets: tickets.map(withTicketProvenance),
+    protocol,
+    ...(waitingForStaff !== undefined ? { waitingForStaff } : {}),
+  };
 }
 
 function isState(value: unknown): value is KitchenOrderState {
